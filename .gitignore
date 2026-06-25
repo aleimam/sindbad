@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+.turbo/
+out/
+coverage/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Claude session data
+.claude/
+
+# Working notes & temp text extractions (not part of the repo)
+_*.txt
+Issues.txt
+
+# Redundant brand-asset duplicate + extracted working copies
+# (the canonical design source is /sindbad-brand-identity-standalone.html)
+/Identity/

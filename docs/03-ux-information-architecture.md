@@ -19,6 +19,7 @@ Logo · ☰ Menu · Language EN/AR · Notifications (unread count) · Chat (unre
 
 ### Rules
 - **Interconnection (first-class on every screen):** mission pages show their matches, requests, and accepted deals; deal pages link to trip, shipment, items, and both users; every display name links to that user's profile (with their active missions).
+- **Trip address privacy:** the coarse **Delivery Location** (destination city/neighbourhood, no details) is **public** on the trip; the full **Receiving Address** (origin, chosen from the traveler's saved addresses, used for Box shipments) is **revealed to the shopper only after the deal is dual-agreed** (shown on the deal).
 - **Visitors:** browse Home & static pages **view-only**; any action prompts Login/Register.
 - **Desktop:** top nav bar + rich marketplace homepage + left sidebar for Account.
 
@@ -67,9 +68,9 @@ Logo · ☰ Menu · Language EN/AR · Notifications (unread count) · Chat (unre
 
 ## 4. Key flows — ✅ approved 2026-06-25
 1. **Onboarding:** Visitor (view-only) → Register (email/phone + password) → OTP verify → Home → optional profile + verifications.
-2. **Post Trip:** New trip (route · optional start / required end receiving dates · private trip date · delivery · weight · categories · fee) → upload flight + passport → admin approval → Active → matched shipments + requests.
+2. **Post Trip:** New trip (route · optional start / required end receiving dates · private trip date · delivery date · **delivery location [city/neighbourhood, public]** · **receiving address [from saved addresses, private]** · weight · categories · fee) → upload flight + passport → admin approval → Active → matched shipments + requests.
 3. **Post Shipment:** New shipment (countries · Box/Basket · items · fee) → Active (no approval) → matched trips + requests.
-4. **Match → Deal:** match → Request → Negotiation (fee/inquiry/accept/reject) → both accept → escrow funds (Box=fee; Basket=fee+price; Variable=estimate) → Ongoing (Box/Basket steps) → Arrived → Ready for Pickup → Completed → escrow released.
+4. **Match → Deal:** match → Request → Negotiation (fee/inquiry/accept/reject) → both accept → **traveler's full receiving address revealed to the shopper (for Box shipping)** → escrow funds (Box=fee; Basket=fee+price; Variable=estimate) → Ongoing (Box/Basket steps) → Arrived → Ready for Pickup → Completed → escrow released.
 5. **Cancellation:** free while accepted; shopper before Completed (Ordered+ → warn + reason + staff approval); refund.
 6. **Disputes:** Partially/Customs → Resolution (green flag) before Completed; or Complaint → staff → decision + punishment.
 7. **Review:** 12h after Completed → blind reviews (12-day window) → reveal → weekly credibility recompute.

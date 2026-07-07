@@ -9,8 +9,20 @@
   },
   "action": {
     "postTrip": "Post a trip",
+    "postTripHint": "Carry & earn",
     "postShipment": "Post a shipment",
+    "postShipmentHint": "Shop from abroad",
     "browse": "Browse",
     "request": "Request"
-  }
+  },
+  "home": {
+    "greeting": "Welcome",
+    "searchPlaceholder": "Search trips & shipments",
+    "matches": "Your matches",
+    "activeDeals": "Active deals",
+    "seeAll": "See all",
+    "emptyMatches": "No matches yet — post a trip or a shipment to get started.",
+    "emptyDeals": "No active deals yet."
+  },
+  "system": { "apiStatus": "API", "online": "online", "offline": "offline" }
 }

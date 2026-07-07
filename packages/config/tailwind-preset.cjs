@@ -1,6 +1,7 @@
 // Sindbad brand tokens as a Tailwind preset.
 // Source of truth: /sindbad-brand-identity-standalone.html and docs/04-design-system.md
 module.exports = {
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -21,6 +22,20 @@ module.exports = {
           blue: '#EAF3FF',
           soft: '#F7FAFF',
         },
+        // Semantic pills — docs/04-design-system.md
+        status: {
+          negotiating: { bg: '#FAEEDA', fg: '#854F0B' },
+          ongoing: { bg: '#E6F1FB', fg: '#185FA5' },
+          completed: { bg: '#E1F5EE', fg: '#0F6E56' },
+          cancelled: { bg: '#FCEBEB', fg: '#A32D2D' },
+        },
+        tier: {
+          new: { bg: '#F1EFE8', fg: '#444441' },
+          bronze: { bg: '#FAEEDA', fg: '#854F0B' },
+          silver: { bg: '#E2E8F0', fg: '#334155' },
+          gold: { bg: '#FAC775', fg: '#633806' },
+          platinum: { bg: '#E6F1FB', fg: '#0C447C' },
+        },
       },
       borderRadius: {
         pill: '999px',
@@ -29,8 +44,8 @@ module.exports = {
         card: '20px',
       },
       fontFamily: {
-        display: ['Sora', 'Inter', 'system-ui', 'sans-serif'],
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Sora', 'IBM Plex Sans Arabic', 'Inter', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'IBM Plex Sans Arabic', 'system-ui', 'sans-serif'],
         campaign: ['Montserrat', 'Inter', 'sans-serif'],
       },
     },

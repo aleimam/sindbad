@@ -1,0 +1,16 @@
+{
+  "app": { "name": "سندباد", "tagline": "مدعوم بالمسافرين" },
+  "nav": {
+    "home": "الرئيسية",
+    "trips": "الرحلات",
+    "shipments": "الشحنات",
+    "deals": "الصفقات",
+    "account": "الحساب"
+  },
+  "action": {
+    "postTrip": "أضف رحلة",
+    "postShipment": "أضف شحنة",
+    "browse": "تصفح",
+    "request": "طلب"
+  }
+}

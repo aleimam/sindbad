@@ -1,0 +1,7 @@
+{
+  "name": "@sindbad/config",
+  "version": "0.0.0",
+  "private": true,
+  "main": "tailwind-preset.cjs",
+  "files": ["tailwind-preset.cjs"]
+}

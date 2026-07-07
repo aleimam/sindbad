@@ -1,0 +1,16 @@
+{
+  "app": { "name": "Sindbad", "tagline": "Powered by Travelers" },
+  "nav": {
+    "home": "Home",
+    "trips": "Trips",
+    "shipments": "Shipments",
+    "deals": "Deals",
+    "account": "Account"
+  },
+  "action": {
+    "postTrip": "Post a trip",
+    "postShipment": "Post a shipment",
+    "browse": "Browse",
+    "request": "Request"
+  }
+}

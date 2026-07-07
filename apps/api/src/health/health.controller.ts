@@ -1,0 +1,16 @@
+import { Controller, Get } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
+
+@ApiTags('health')
+@Controller('health')
+export class HealthController {
+  @Get()
+  check() {
+    return {
+      status: 'ok',
+      service: 'sindbad-api',
+      version: '0.0.1',
+      time: new Date().toISOString(),
+    };
+  }
+}

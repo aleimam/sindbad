@@ -11,6 +11,8 @@ export interface AccountRef {
   id: string;
   displayName: string;
   type?: 'PERSONAL' | 'COMMERCIAL';
+  credibilityScore?: number;
+  credibilityTier?: 'NEW' | 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM';
 }
 
 export interface TripData {

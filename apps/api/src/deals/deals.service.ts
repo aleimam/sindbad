@@ -13,6 +13,7 @@ import { LedgerService } from '../money/ledger.service';
 import { FxService } from '../money/fx.service';
 import { SettingsService } from '../money/settings.service';
 import { CredibilityService } from '../trust/credibility.service';
+import { SocialService } from '../trust/social.service';
 import { escrowAmountMinor, reconcileVariable } from '../money/fee-engine';
 import { egpForUsd } from '../money/fx';
 import { shipmentTotalWeight } from '../matching/matching';
@@ -57,6 +58,7 @@ export class DealsService {
     private readonly fx: FxService,
     private readonly settings: SettingsService,
     private readonly credibility: CredibilityService,
+    private readonly social: SocialService,
   ) {}
 
   /** Notify the counterpart of an acting party (fire-and-forget). */
@@ -94,6 +96,8 @@ export class DealsService {
     const shopperAccountId = shipmentMission.accountId;
     if (travelerAccountId === shopperAccountId)
       throw new BadRequestException('Cannot deal with yourself');
+    if (await this.social.isBlockedPair(travelerAccountId, shopperAccountId))
+      throw new ForbiddenException('You cannot deal with this user');
     if (actingAccountId !== travelerAccountId && actingAccountId !== shopperAccountId)
       throw new ForbiddenException('You must own the trip or the shipment');
 
@@ -454,6 +458,7 @@ export class DealsService {
         where: { id: dealId },
         data: {
           status: 'COMPLETED',
+          completedAt: new Date(), // opens the review window (+12h … +12d)
           escrowedUsd: 0,
           events: {
             create: [

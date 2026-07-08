@@ -138,6 +138,54 @@ model Verification {
   @@index([status])
 }
 
+enum ReviewStatus {
+  PENDING // blind — hidden from the other party
+  REVEALED // both submitted, or the window closed (decision P1/#7)
+}
+
+/// Mutual deal reviews (docs/02 §8): blind until reveal; delete yes, edit no.
+model Review {
+  id              String       @id @default(cuid())
+  dealId          String
+  authorAccountId String
+  targetAccountId String
+  stars           Int // 1–5
+  comment         String?
+  status          ReviewStatus @default(PENDING)
+  response        String? // the reviewed party's reply (after reveal)
+  respondedAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([dealId, authorAccountId])
+  @@index([targetAccountId, status])
+}
+
+enum UserFlagKind {
+  OUTSTANDING
+  FOLLOW // priority in lists
+  BLOCK // no contact, hidden activity, no matching — both ways
+}
+
+model UserFlag {
+  ownerAccountId  String
+  targetAccountId String
+  kind            UserFlagKind
+  createdAt       DateTime     @default(now())
+
+  @@id([ownerAccountId, targetAccountId])
+  @@index([targetAccountId, kind])
+}
+
+/// Favorites — quick recipients for money transfers (spec "Wallet").
+model Favorite {
+  ownerAccountId  String
+  targetAccountId String
+  createdAt       DateTime @default(now())
+
+  @@id([ownerAccountId, targetAccountId])
+}
+
 /// Append-only credibility ledger. Weekly recompute derives Account.credibilityScore.
 model CredibilityEvent {
   id           String   @id @default(cuid())
@@ -737,6 +785,7 @@ model Deal {
   pricingMode          PricingMode? // BASKET only; null for BOX
   actualPriceUsd       Int? // VARIABLE baskets: actual product cost set by the traveler
   escrowedUsd          Int           @default(0) // currently held in escrow for this deal
+  completedAt          DateTime? // drives the review window (+12h … +12d)
   travelerPaysAllCustoms Boolean     @default(false) // exempts the deal from trip-level CUSTOMS flags
   cancelReason         String?
   createdAt            DateTime      @default(now())

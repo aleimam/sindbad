@@ -316,6 +316,22 @@ export const adminCredibilitySchema = z.object({
 });
 export type AdminCredibilityInput = z.infer<typeof adminCredibilitySchema>;
 
+export const submitReviewSchema = z.object({
+  stars: z.number().int().min(1).max(5),
+  comment: z.string().max(2000).optional(),
+});
+export type SubmitReviewInput = z.infer<typeof submitReviewSchema>;
+
+export const reviewResponseSchema = z.object({
+  text: z.string().min(1).max(2000),
+});
+export type ReviewResponseInput = z.infer<typeof reviewResponseSchema>;
+
+export const userFlagSchema = z.object({
+  kind: z.enum(['OUTSTANDING', 'FOLLOW', 'BLOCK']),
+});
+export type UserFlagInput = z.infer<typeof userFlagSchema>;
+
 export const categoryPreferencesSchema = z.object({
   items: z.array(
     z.object({

@@ -3,6 +3,8 @@ import { AuthModule } from '../auth/auth.module';
 import { AdminModule } from '../admin/admin.module';
 import { CredibilityService } from './credibility.service';
 import { VerificationsService } from './verifications.service';
+import { ReviewsService } from './reviews.service';
+import { SocialService } from './social.service';
 import { TrustController } from './trust.controller';
 import { AdminTrustController } from './admin-trust.controller';
 
@@ -10,7 +12,7 @@ import { AdminTrustController } from './admin-trust.controller';
 @Module({
   imports: [AuthModule, AdminModule],
   controllers: [TrustController, AdminTrustController],
-  providers: [CredibilityService, VerificationsService],
-  exports: [CredibilityService, VerificationsService],
+  providers: [CredibilityService, VerificationsService, ReviewsService, SocialService],
+  exports: [CredibilityService, VerificationsService, ReviewsService, SocialService],
 })
 export class TrustModule {}

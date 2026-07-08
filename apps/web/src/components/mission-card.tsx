@@ -2,7 +2,7 @@
 
 import { useLocale, useTranslations } from 'next-intl';
 import { ArrowRight, Package, Plane, ShoppingBasket } from 'lucide-react';
-import { Avatar, Card, StatusPill } from '@sindbad/ui';
+import { Avatar, Card, StatusPill, TierBadge } from '@sindbad/ui';
 import { Link } from '@/i18n/navigation';
 import { fmtDate, fmtUsd } from '@/lib/format';
 import { localizedName } from '@/lib/use-api';
@@ -73,6 +73,13 @@ export function MissionCard({ mission, showStatus }: { mission: Mission; showSta
           <div className="flex items-center gap-2">
             <Avatar name={mission.account.displayName} className="h-6 w-6 text-[10px]" />
             <span className="text-xs font-medium">{mission.account.displayName}</span>
+            {mission.account.credibilityTier ? (
+              <TierBadge
+                tier={mission.account.credibilityTier}
+                score={mission.account.credibilityScore}
+                className="px-1.5 py-0.5 text-[10px]"
+              />
+            ) : null}
           </div>
           <span className="text-sm font-semibold text-navy dark:text-offwhite">{fmtUsd(fee)}</span>
         </div>

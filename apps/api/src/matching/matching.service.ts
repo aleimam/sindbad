@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SocialService } from '../trust/social.service';
 import { evaluateMatch, shipmentTotalWeight, type TripForMatch } from './matching';
 
 /**
@@ -16,6 +17,7 @@ export class MatchingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly social: SocialService,
   ) {}
 
   // ── Stored matches: sync on mission events + periodic sweep (docs/02 §5) ──
@@ -132,13 +134,14 @@ export class MatchingService {
     if (!mission?.trip) return [];
     const tripForMatch = this.toTripForMatch(mission);
 
+    const blocked = await this.social.blockedAccountIds(mission.accountId);
     const candidates = await this.prisma.mission.findMany({
       where: {
         kind: 'SHIPMENT',
         status: 'ACTIVE',
         originCountryId: mission.originCountryId,
         destinationCountryId: mission.destinationCountryId,
-        accountId: { not: mission.accountId }, // never match your own missions
+        accountId: { not: mission.accountId, notIn: blocked }, // never match yourself or blocked pairs
       },
       include: {
         shipment: { include: { items: true } },
@@ -174,13 +177,14 @@ export class MatchingService {
       totalWeightKg: shipmentTotalWeight(mission.shipment.items),
     };
 
+    const blocked = await this.social.blockedAccountIds(mission.accountId);
     const candidates = await this.prisma.mission.findMany({
       where: {
         kind: 'TRIP',
         status: 'ACTIVE',
         originCountryId: mission.originCountryId,
         destinationCountryId: mission.destinationCountryId,
-        accountId: { not: mission.accountId },
+        accountId: { not: mission.accountId, notIn: blocked },
       },
       include: {
         trip: { include: { allowedCategories: true } },

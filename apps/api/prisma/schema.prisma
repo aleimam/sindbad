@@ -1,6 +1,6 @@
 // Sindbad database schema.
 // The domain model this implements lives in docs/02-domain-blueprint.md.
-// Real models arrive in Phase 1 (Identity & Accounts). This is the datasource/generator setup.
+// Phase 1: Identity & Access (module 1). Later modules extend this file.
 
 generator client {
   provider = "prisma-client-js"
@@ -9,4 +9,134 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── Identity & Access ───────────────────────────
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum AccountType {
+  PERSONAL
+  COMMERCIAL
+}
+
+enum AccountRole {
+  OWNER
+  MANAGER
+}
+
+enum OtpPurpose {
+  REGISTER
+  LOGIN
+  NEW_DEVICE
+  SENSITIVE_ACTION
+  PASSWORD_RESET
+}
+
+enum OtpChannel {
+  SMS
+  EMAIL
+}
+
+enum BlockedIdentityKind {
+  PHONE
+  NATIONAL_ID
+  PASSPORT
+  FULL_NAME
+}
+
+/// A login (credentials + security). The marketplace participant is `Account`.
+model User {
+  id              String     @id @default(cuid())
+  email           String?    @unique
+  phone           String?    @unique
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
+  passwordHash    String
+  status          UserStatus @default(ACTIVE)
+  isStaff         Boolean    @default(false)
+  totpSecret      String? // admin 2FA (wired in the admin module)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  memberships   AccountMember[]
+  sessions      Session[]
+  otpChallenges OtpChallenge[]
+}
+
+/// The marketplace participant: profile, credibility, wallet, missions hang off this.
+model Account {
+  id                   String      @id @default(cuid())
+  type                 AccountType @default(PERSONAL)
+  displayName          String
+  displayNameChangedAt DateTime?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  members AccountMember[]
+}
+
+/// User ↔ Account link. Personal = one OWNER; Commercial = OWNER + MANAGERs (full permissions in v1).
+model AccountMember {
+  userId    String
+  accountId String
+  role      AccountRole @default(OWNER)
+  createdAt DateTime    @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@id([userId, accountId])
+  @@index([accountId])
+}
+
+/// One row per device/login. Refresh tokens rotate; only the hash is stored.
+model Session {
+  id               String    @id @default(cuid())
+  userId           String
+  refreshTokenHash String    @unique
+  deviceLabel      String?
+  ip               String?
+  userAgent        String?
+  createdAt        DateTime  @default(now())
+  lastUsedAt       DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// OTP step-up: registration, new device, sensitive actions, password reset.
+model OtpChallenge {
+  id          String     @id @default(cuid())
+  userId      String?
+  destination String // normalized email or phone
+  channel     OtpChannel
+  purpose     OtpPurpose
+  codeHash    String
+  attempts    Int        @default(0)
+  maxAttempts Int        @default(5)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime   @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([destination, purpose])
+}
+
+/// Identifiers of blocked users — blocks re-registration (docs/02 §2, spec "Blocked Users").
+model BlockedIdentity {
+  id        String              @id @default(cuid())
+  kind      BlockedIdentityKind
+  value     String // normalized
+  reason    String?
+  createdAt DateTime            @default(now())
+
+  @@unique([kind, value])
 }

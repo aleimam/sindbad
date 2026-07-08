@@ -167,6 +167,32 @@ export const cancelDealSchema = z.object({
 });
 export type CancelDealInput = z.infer<typeof cancelDealSchema>;
 
+export const updateTripSchema = z.object({
+  // Free edits (spec): categories, weight, notes, addresses, fee, travelers.
+  allowedCategoryIds: z.array(z.string().min(1)).min(1).optional(),
+  availableWeightKg: z.number().positive().max(1000).optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  receivingAddress: z.string().min(5).max(500).optional(),
+  deliveryLocation: z.string().min(2).max(120).optional(),
+  feeUsd: z.number().int().min(0).nullable().optional(),
+  travelerCount: z.number().int().min(1).max(20).optional(),
+  // Approval-gated on active trips (Edit Approvals):
+  receivingStart: z.coerce.date().nullable().optional(),
+  receivingEnd: z.coerce.date().optional(),
+  tripDate: z.coerce.date().optional(),
+  // Direct only while the trip has no accepted deals:
+  deliveryDate: z.coerce.date().optional(),
+});
+export type UpdateTripInput = z.infer<typeof updateTripSchema>;
+
+export const updateShipmentSchema = z.object({
+  type: z.enum(['BOX', 'BASKET']).optional(),
+  feeUsd: z.number().int().min(0).nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  items: z.array(shipmentItemSchema).min(1).max(50).optional(), // full replacement
+});
+export type UpdateShipmentInput = z.infer<typeof updateShipmentSchema>;
+
 export const partiallyFlagSchema = z.object({
   problem: z.enum(['LOST_DAMAGED', 'DELAYED']),
 });

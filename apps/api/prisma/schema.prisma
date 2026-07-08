@@ -432,6 +432,32 @@ enum CancellationStatus {
   REJECTED
 }
 
+// ── Edit approvals (docs/02 §2 — ChangeRequest) ──
+
+enum ChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Approval-gated edits (trip dates now; display/full name with the profile module).
+/// Shows staff exactly what changed: before → after.
+model ChangeRequest {
+  id              String              @id @default(cuid())
+  accountId       String
+  subjectType     String // 'TRIP_DATES' | 'DISPLAY_NAME' | 'FULL_NAME' | ...
+  subjectId       String // e.g. missionId
+  before          Json
+  after           Json
+  status          ChangeRequestStatus @default(PENDING)
+  decidedByUserId String?
+  decidedAt       DateTime?
+  createdAt       DateTime            @default(now())
+
+  @@index([status, subjectType])
+  @@index([subjectId])
+}
+
 /// Shopper cancellations at Ordered-or-later require staff approval before execution.
 model CancellationRequest {
   id                   String             @id @default(cuid())

@@ -1,6 +1,11 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { createShipmentSchema, type CreateShipmentInput } from '@sindbad/shared';
+import {
+  createShipmentSchema,
+  updateShipmentSchema,
+  type CreateShipmentInput,
+  type UpdateShipmentInput,
+} from '@sindbad/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -48,6 +53,19 @@ export class ShipmentsController {
   @ApiOperation({ summary: 'Shipment detail' })
   detail(@Param('id') id: string) {
     return this.missions.byId(id);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Edit a shipment (locked once a deal is accepted, unless cyclic)' })
+  async update(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateShipmentSchema)) body: UpdateShipmentInput,
+  ) {
+    const accountId = await this.accounts.getActingAccountId(user.userId);
+    return this.missions.updateShipment(accountId, id, body);
   }
 
   @Get(':id/matches')

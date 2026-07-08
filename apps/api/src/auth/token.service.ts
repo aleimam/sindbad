@@ -40,4 +40,20 @@ export class TokenService {
   static hashRefreshToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
   }
+
+  /** Short-lived token bridging password success → TOTP verification (admin 2FA step-up). */
+  signPending2fa(userId: string): string {
+    return this.jwt.sign(
+      { sub: userId, purpose: '2fa' },
+      { secret: this.config.get<string>('jwt.accessSecret'), expiresIn: 300 },
+    );
+  }
+
+  verifyPending2fa(token: string): { sub: string } {
+    const payload = this.jwt.verify<{ sub: string; purpose?: string }>(token, {
+      secret: this.config.get<string>('jwt.accessSecret'),
+    });
+    if (payload.purpose !== '2fa') throw new Error('Wrong token purpose');
+    return { sub: payload.sub };
+  }
 }

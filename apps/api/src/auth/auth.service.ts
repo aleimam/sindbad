@@ -102,22 +102,27 @@ export class AuthService {
       data: verifiedField,
     });
 
-    return this.createSession(user.id, meta);
+    return this.issueTokensForUser(user.id, meta);
   }
 
   // ── Login / sessions ──────────────────────────────────────────────────────
 
-  async login(input: LoginInput, meta: SessionMeta) {
-    const lookup = normalizeIdentifier(input.identifier);
+  /** Shared credential check (used by user login and admin login). */
+  async validateCredentials(identifier: string, password: string) {
+    const lookup = normalizeIdentifier(identifier);
     const user = await this.prisma.user.findUnique({
       where: lookup.email ? { email: lookup.email } : { phone: lookup.phone! },
     });
-    if (!user || !(await this.passwords.verify(user.passwordHash, input.password)))
+    if (!user || !(await this.passwords.verify(user.passwordHash, password)))
       throw new UnauthorizedException('Invalid credentials');
     if (user.status === 'BLOCKED')
       throw new ForbiddenException('Account blocked'); // ongoing-deals-only access lands with the deals module
+    return user;
+  }
 
-    return this.createSession(user.id, meta);
+  async login(input: LoginInput, meta: SessionMeta) {
+    const user = await this.validateCredentials(input.identifier, input.password);
+    return this.issueTokensForUser(user.id, meta);
   }
 
   async refresh(refreshToken: string, meta: SessionMeta) {
@@ -215,9 +220,9 @@ export class AuthService {
     return { ok: true };
   }
 
-  // ── Internals ─────────────────────────────────────────────────────────────
+  // ── Sessions ──────────────────────────────────────────────────────────────
 
-  private async createSession(userId: string, meta: SessionMeta): Promise<IssuedTokens> {
+  async issueTokensForUser(userId: string, meta: SessionMeta): Promise<IssuedTokens> {
     const refresh = this.tokens.generateRefreshToken();
     const session = await this.prisma.session.create({
       data: {

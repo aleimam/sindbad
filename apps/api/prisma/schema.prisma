@@ -58,13 +58,17 @@ model User {
   passwordHash    String
   status          UserStatus @default(ACTIVE)
   isStaff         Boolean    @default(false)
-  totpSecret      String? // admin 2FA (wired in the admin module)
+  isSuperAdmin    Boolean    @default(false)
+  totpSecret      String? // admin 2FA
+  totpEnabledAt   DateTime? // set once the first code is verified; login then requires TOTP
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
-  memberships   AccountMember[]
-  sessions      Session[]
-  otpChallenges OtpChallenge[]
+  memberships      AccountMember[]
+  sessions         Session[]
+  otpChallenges    OtpChallenge[]
+  teamMemberships  TeamMember[]
+  staffPermissions StaffPermission[]
 }
 
 /// The marketplace participant: profile, credibility, wallet, missions hang off this.
@@ -139,4 +143,50 @@ model BlockedIdentity {
   createdAt DateTime            @default(now())
 
   @@unique([kind, value])
+}
+
+// ─────────────────────────── Staff & RBAC ───────────────────────────
+// Effective permissions = union(team permissions) + member grants − member denials.
+// Super admins bypass permission checks. (docs/02 §2 module 11)
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members     TeamMember[]
+  permissions TeamPermission[]
+}
+
+model TeamMember {
+  userId    String
+  teamId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([userId, teamId])
+  @@index([teamId])
+}
+
+model TeamPermission {
+  teamId     String
+  permission String // key from the shared PERMISSIONS catalog
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, permission])
+}
+
+/// Per-staff-member override: allow=true grants, allow=false denies (wins over team grants).
+model StaffPermission {
+  userId     String
+  permission String
+  allow      Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, permission])
 }

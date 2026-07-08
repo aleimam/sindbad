@@ -47,3 +47,47 @@ export const resetPasswordSchema = z.object({
   newPassword: z.string().min(8),
 });
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+// ── Admin ──
+
+export const verify2faSchema = z.object({
+  challengeToken: z.string().min(1),
+  code: z
+    .string()
+    .length(6)
+    .regex(/^\d{6}$/),
+});
+export type Verify2faInput = z.infer<typeof verify2faSchema>;
+
+export const enable2faSchema = z.object({
+  code: z
+    .string()
+    .length(6)
+    .regex(/^\d{6}$/),
+});
+export type Enable2faInput = z.infer<typeof enable2faSchema>;
+
+export const teamUpsertSchema = z.object({
+  name: z.string().min(2).max(60),
+});
+export type TeamUpsertInput = z.infer<typeof teamUpsertSchema>;
+
+export const teamPermissionsSchema = z.object({
+  permissions: z.array(z.string().min(1)),
+});
+export type TeamPermissionsInput = z.infer<typeof teamPermissionsSchema>;
+
+export const teamMemberSchema = z.object({
+  userId: z.string().min(1),
+});
+export type TeamMemberInput = z.infer<typeof teamMemberSchema>;
+
+export const staffPermissionsSchema = z.object({
+  grants: z.array(
+    z.object({
+      permission: z.string().min(1),
+      allow: z.boolean(),
+    }),
+  ),
+});
+export type StaffPermissionsInput = z.infer<typeof staffPermissionsSchema>;

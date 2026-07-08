@@ -109,6 +109,7 @@ export const createTripSchema = z
     feeUsd: z.number().int().min(0).optional(), // minor units (cents)
     notes: z.string().max(2000).optional(),
     allowedCategoryIds: z.array(z.string().min(1)).min(1),
+    askCategoryIds: z.array(z.string().min(1)).default([]), // match, but flag for confirmation
     isCyclic: z.boolean().default(false),
   })
   .refine((v) => !v.receivingStart || v.receivingStart <= v.receivingEnd, {
@@ -170,6 +171,7 @@ export type CancelDealInput = z.infer<typeof cancelDealSchema>;
 export const updateTripSchema = z.object({
   // Free edits (spec): categories, weight, notes, addresses, fee, travelers.
   allowedCategoryIds: z.array(z.string().min(1)).min(1).optional(),
+  askCategoryIds: z.array(z.string().min(1)).optional(),
   availableWeightKg: z.number().positive().max(1000).optional(),
   notes: z.string().max(2000).nullable().optional(),
   receivingAddress: z.string().min(5).max(500).optional(),
@@ -202,3 +204,13 @@ export const resolutionSchema = z.object({
   text: z.string().min(3).max(2000),
 });
 export type ResolutionInput = z.infer<typeof resolutionSchema>;
+
+export const categoryPreferencesSchema = z.object({
+  items: z.array(
+    z.object({
+      categoryId: z.string().min(1),
+      stance: z.enum(['ACCEPT', 'REJECT', 'ASK']),
+    }),
+  ),
+});
+export type CategoryPreferencesInput = z.infer<typeof categoryPreferencesSchema>;

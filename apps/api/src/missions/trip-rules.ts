@@ -24,6 +24,7 @@ export function dateOrderError(d: TripDates): string | null {
 
 export const FREE_TRIP_FIELDS = [
   'allowedCategoryIds',
+  'askCategoryIds',
   'availableWeightKg',
   'notes',
   'receivingAddress',

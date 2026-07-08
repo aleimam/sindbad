@@ -50,8 +50,8 @@ export function Header() {
 
         {me ? (
           <>
-            <button
-              type="button"
+            <Link
+              href="/notifications"
               aria-label="Notifications"
               className="relative text-slate-dark dark:text-offwhite"
             >
@@ -61,7 +61,7 @@ export function Header() {
                   {unread.count > 9 ? '9+' : unread.count}
                 </span>
               ) : null}
-            </button>
+            </Link>
             <button
               type="button"
               aria-label="Chat"

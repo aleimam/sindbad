@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { AdminModule } from './admin/admin.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { PreferencesModule } from './preferences/preferences.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { MatchingModule } from './matching/matching.module';
 import { MissionsModule } from './missions/missions.module';
@@ -25,6 +26,7 @@ import { MetaModule } from './meta/meta.module';
     AdminModule,
     AccountsModule,
     NotificationsModule,
+    PreferencesModule,
     CatalogModule,
     MatchingModule,
     MissionsModule,

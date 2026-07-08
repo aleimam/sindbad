@@ -59,7 +59,9 @@ export class MissionsService {
   async createTrip(accountId: string, input: CreateTripInput) {
     await this.assertCountries(input.originCountryId, input.destinationCountryId);
     await this.assertCyclicAllowed(accountId, input.isCyclic);
-    await this.assertCategories(input.allowedCategoryIds);
+    // Ask categories match but flag the traveler; a category in both lists is ACCEPT.
+    const askIds = input.askCategoryIds.filter((id) => !input.allowedCategoryIds.includes(id));
+    await this.assertCategories([...input.allowedCategoryIds, ...askIds]);
 
     return this.prisma.mission.create({
       data: {
@@ -82,7 +84,13 @@ export class MissionsService {
             feeUsd: input.feeUsd,
             notes: input.notes,
             allowedCategories: {
-              create: input.allowedCategoryIds.map((categoryId) => ({ categoryId })),
+              create: [
+                ...input.allowedCategoryIds.map((categoryId) => ({
+                  categoryId,
+                  stance: 'ACCEPT' as const,
+                })),
+                ...askIds.map((categoryId) => ({ categoryId, stance: 'ASK' as const })),
+              ],
             },
           },
         },
@@ -195,7 +203,11 @@ export class MissionsService {
     if (!['PENDING_APPROVAL', 'ACTIVE', 'DRAFT'].includes(mission.status))
       throw new BadRequestException(`A ${mission.status} trip cannot be edited`);
 
-    if (input.allowedCategoryIds) await this.assertCategories(input.allowedCategoryIds);
+    const askIdsUpdate = input.askCategoryIds?.filter(
+      (id) => !(input.allowedCategoryIds ?? []).includes(id),
+    );
+    if (input.allowedCategoryIds || askIdsUpdate)
+      await this.assertCategories([...(input.allowedCategoryIds ?? []), ...(askIdsUpdate ?? [])]);
 
     const { free, approvalDates, deliveryDate } = classifyTripEdit(input);
     const trip = mission.trip;
@@ -227,9 +239,10 @@ export class MissionsService {
         );
     }
 
-    const { allowedCategoryIds, ...freeScalars } = free as Record<string, unknown> & {
-      allowedCategoryIds?: string[];
-    };
+    const { allowedCategoryIds, askCategoryIds: _ask, ...freeScalars } = free as Record<
+      string,
+      unknown
+    > & { allowedCategoryIds?: string[]; askCategoryIds?: string[] };
 
     await this.prisma.$transaction(async (tx) => {
       const directDates = dateChangesNeedApproval ? {} : approvalDates;
@@ -241,10 +254,21 @@ export class MissionsService {
           ...(deliveryDate !== undefined ? { deliveryDate: deliveryDate as Date } : {}),
         },
       });
-      if (allowedCategoryIds) {
+      if (allowedCategoryIds || askIdsUpdate) {
         await tx.tripCategory.deleteMany({ where: { missionId } });
         await tx.tripCategory.createMany({
-          data: allowedCategoryIds.map((categoryId) => ({ missionId, categoryId })),
+          data: [
+            ...(allowedCategoryIds ?? []).map((categoryId) => ({
+              missionId,
+              categoryId,
+              stance: 'ACCEPT' as const,
+            })),
+            ...(askIdsUpdate ?? []).map((categoryId) => ({
+              missionId,
+              categoryId,
+              stance: 'ASK' as const,
+            })),
+          ],
         });
       }
     });

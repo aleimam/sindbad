@@ -80,11 +80,12 @@ model Account {
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
 
-  members       AccountMember[]
-  missions      Mission[]
-  travelerDeals Deal[]          @relation("travelerDeals")
-  shopperDeals  Deal[]          @relation("shopperDeals")
-  notifications Notification[]
+  members             AccountMember[]
+  missions            Mission[]
+  travelerDeals       Deal[]               @relation("travelerDeals")
+  shopperDeals        Deal[]               @relation("shopperDeals")
+  notifications       Notification[]
+  categoryPreferences CategoryPreference[]
 }
 
 /// User ↔ Account link. Personal = one OWNER; Commercial = OWNER + MANAGERs (full permissions in v1).
@@ -222,6 +223,7 @@ model Category {
 
   items        Item[]
   tripsAllowed TripCategory[]
+  preferences  CategoryPreference[]
 }
 
 // ─────────────────────────── Missions ───────────────────────────
@@ -324,14 +326,34 @@ model Trip {
   allowedCategories TripCategory[]
 }
 
+enum CategoryStance {
+  ACCEPT
+  REJECT
+  ASK
+}
+
 model TripCategory {
   missionId  String
   categoryId String
+  stance     CategoryStance @default(ACCEPT) // ASK → matches flagged for traveler confirmation
 
   trip     Trip     @relation(fields: [missionId], references: [missionId], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@id([missionId, categoryId])
+}
+
+/// Account-level traveler preference per category (Accept / Reject / Ask) —
+/// inherited as the default when posting a trip (docs/02 §2).
+model CategoryPreference {
+  accountId  String
+  categoryId String
+  stance     CategoryStance
+
+  account  Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([accountId, categoryId])
 }
 
 model Shipment {

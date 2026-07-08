@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { createTripSchema } from '@sindbad/shared';
 import { Button, Card, Input } from '@sindbad/ui';
@@ -9,7 +9,7 @@ import { api, ApiError } from '@/lib/api';
 import { usdToCents } from '@/lib/format';
 import { useCategories, useCountries } from '@/lib/use-api';
 import { CountrySelect } from '@/components/country-select';
-import { CategoryPicker } from '@/components/category-picker';
+import { TriCategoryPicker, type Stance } from '@/components/tri-category-picker';
 import { Field } from '@/components/field';
 
 export default function NewTripPage() {
@@ -32,9 +32,23 @@ export default function NewTripPage() {
     feeUsd: '',
     notes: '',
   });
-  const [allowedCategoryIds, setAllowed] = useState<string[]>([]);
+  const [stances, setStances] = useState<Record<string, Stance | undefined>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Inherit the traveler's account-level category preferences as the starting point.
+  useEffect(() => {
+    api<Array<{ categoryId: string; stance: Stance }>>('/preferences/categories')
+      .then((prefs) => {
+        setStances((current) => {
+          if (Object.keys(current).length > 0) return current;
+          const map: Record<string, Stance | undefined> = {};
+          for (const p of prefs) if (p.stance !== 'REJECT') map[p.categoryId] = p.stance;
+          return map;
+        });
+      })
+      .catch(() => undefined);
+  }, []);
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -43,6 +57,8 @@ export default function NewTripPage() {
     e.preventDefault();
     setError(null);
 
+    const allowedCategoryIds = Object.keys(stances).filter((id) => stances[id] === 'ACCEPT');
+    const askCategoryIds = Object.keys(stances).filter((id) => stances[id] === 'ASK');
     const candidate = {
       originCountryId: form.originCountryId,
       destinationCountryId: form.destinationCountryId,
@@ -57,6 +73,7 @@ export default function NewTripPage() {
       feeUsd: form.feeUsd ? usdToCents(form.feeUsd) : undefined,
       notes: form.notes || undefined,
       allowedCategoryIds,
+      askCategoryIds,
       isCyclic: false,
     };
     const parsed = createTripSchema.safeParse(candidate);
@@ -145,13 +162,12 @@ export default function NewTripPage() {
             </Field>
           </div>
 
-          <Field label={t('market.allowedCategories')}>
-            <CategoryPicker
+          <Field label={t('market.allowedCategories')} hint={t('market.stanceHint')}>
+            <TriCategoryPicker
               categories={categories}
-              selected={allowedCategoryIds}
-              onToggle={(id) =>
-                setAllowed((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
-              }
+              value={stances}
+              cycle={['ACCEPT', 'ASK']}
+              onChange={(id, next) => setStances((s) => ({ ...s, [id]: next }))}
             />
           </Field>
 

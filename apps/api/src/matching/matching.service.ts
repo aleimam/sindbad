@@ -225,7 +225,7 @@ export class MatchingService {
     trip: {
       receivingEnd: Date;
       availableWeightKg: number;
-      allowedCategories: Array<{ categoryId: string }>;
+      allowedCategories: Array<{ categoryId: string; stance: 'ACCEPT' | 'REJECT' | 'ASK' }>;
     } | null;
   }): TripForMatch {
     return {
@@ -233,9 +233,8 @@ export class MatchingService {
       destinationCountryId: mission.destinationCountryId,
       receivingEnd: mission.trip!.receivingEnd,
       availableWeightKg: mission.trip!.availableWeightKg,
-      categoryStances: new Map(
-        mission.trip!.allowedCategories.map((c) => [c.categoryId, 'ACCEPT' as const]),
-      ),
+      // ACCEPT/ASK rows stored per trip; absent = REJECT (evaluateMatch handles Ask-flagging).
+      categoryStances: new Map(mission.trip!.allowedCategories.map((c) => [c.categoryId, c.stance])),
     };
   }
 }

@@ -71,6 +71,12 @@ export default function AccountPage() {
         ))}
       </div>
 
+      <Link href="/account/preferences" className="block">
+        <Button variant="ghost" className="w-full">
+          {t('prefs.title')}
+        </Button>
+      </Link>
+
       <Button variant="secondary" onClick={logout} className="w-full">
         {t('auth.logout')}
       </Button>

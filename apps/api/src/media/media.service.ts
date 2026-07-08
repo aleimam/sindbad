@@ -134,8 +134,18 @@ export class MediaService {
         if (mission.accountId !== accountId) throw new ForbiddenException('Not your trip');
         return;
       }
+      case 'KYC': {
+        // Verification attachments (ID photos, 5-sec liveness shot, address proofs…).
+        const verification = await this.prisma.verification.findUnique({
+          where: { id: subjectId },
+        });
+        if (!verification) throw new NotFoundException('Verification not found');
+        if (verification.accountId !== accountId)
+          throw new ForbiddenException('Not your verification');
+        return;
+      }
       default:
-        // CHAT / KYC / REVIEW subjects arrive with their modules.
+        // CHAT / REVIEW subjects arrive with their modules.
         throw new BadRequestException(`Uploads for ${context} are not enabled yet`);
     }
   }

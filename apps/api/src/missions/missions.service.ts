@@ -39,7 +39,15 @@ const PUBLIC_TRIP_SELECT = {
 const MISSION_INCLUDE_PUBLIC = {
   origin: { select: { id: true, code: true, nameEn: true, nameAr: true } },
   destination: { select: { id: true, code: true, nameEn: true, nameAr: true } },
-  account: { select: { id: true, displayName: true, type: true } },
+  account: {
+    select: {
+      id: true,
+      displayName: true,
+      type: true,
+      credibilityScore: true,
+      credibilityTier: true,
+    },
+  },
 } as const;
 
 @Injectable()
@@ -146,7 +154,8 @@ export class MissionsService {
     return this.prisma.mission.findMany({
       where: { kind: 'TRIP', status: 'ACTIVE' },
       include: { ...MISSION_INCLUDE_PUBLIC, trip: { select: PUBLIC_TRIP_SELECT } },
-      orderBy: { createdAt: 'desc' }, // credibility-first ordering lands with the trust module
+      // Spec "Lists": default sort by credibility score, shown in the list view.
+      orderBy: [{ account: { credibilityScore: 'desc' } }, { createdAt: 'desc' }],
       take: 50,
     });
   }
@@ -155,7 +164,7 @@ export class MissionsService {
     return this.prisma.mission.findMany({
       where: { kind: 'SHIPMENT', status: 'ACTIVE' },
       include: { ...MISSION_INCLUDE_PUBLIC, shipment: { include: { items: true } } },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ account: { credibilityScore: 'desc' } }, { createdAt: 'desc' }],
       take: 50,
     });
   }

@@ -12,6 +12,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { LedgerService } from '../money/ledger.service';
 import { FxService } from '../money/fx.service';
 import { SettingsService } from '../money/settings.service';
+import { CredibilityService } from '../trust/credibility.service';
 import { escrowAmountMinor, reconcileVariable } from '../money/fee-engine';
 import { egpForUsd } from '../money/fx';
 import { shipmentTotalWeight } from '../matching/matching';
@@ -55,6 +56,7 @@ export class DealsService {
     private readonly ledger: LedgerService,
     private readonly fx: FxService,
     private readonly settings: SettingsService,
+    private readonly credibility: CredibilityService,
   ) {}
 
   /** Notify the counterpart of an acting party (fire-and-forget). */
@@ -469,6 +471,10 @@ export class DealsService {
       });
     });
     this.notifyOther(updated, actingAccountId, 'Your deal was completed 🎉');
+    // Trips & shipments feed the credibility score (docs/02 §5) — time-weighted.
+    void this.credibility
+      .onDealCompleted(dealId, deal.travelerAccountId, deal.shopperAccountId)
+      .catch(() => undefined);
     return this.serialize(updated, actingAccountId);
   }
 

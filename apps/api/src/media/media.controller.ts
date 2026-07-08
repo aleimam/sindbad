@@ -24,7 +24,7 @@ import { AccountsService } from '../accounts/accounts.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MediaService, type Variant } from './media.service';
 
-const UPLOAD_CONTEXTS: AttachmentContext[] = ['ITEM_PHOTO', 'TRIP_VERIFICATION'];
+const UPLOAD_CONTEXTS: AttachmentContext[] = ['ITEM_PHOTO', 'TRIP_VERIFICATION', 'KYC'];
 const VARIANTS: Variant[] = ['original', 'md', 'thumb'];
 
 @ApiTags('media')

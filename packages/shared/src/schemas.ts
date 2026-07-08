@@ -297,6 +297,25 @@ export const fxManualRateSchema = z.object({
 });
 export type FxManualRateInput = z.infer<typeof fxManualRateSchema>;
 
+// ── Trust ──
+
+export const requestVerificationSchema = z.object({
+  typeKey: z.string().min(2).max(40),
+  details: z.string().max(2000).optional(),
+});
+export type RequestVerificationInput = z.infer<typeof requestVerificationSchema>;
+
+export const decideVerificationSchema = z.object({
+  status: z.enum(['STUDYING', 'VERIFIED', 'NEEDS_REVIEW', 'REJECTED']),
+});
+export type DecideVerificationInput = z.infer<typeof decideVerificationSchema>;
+
+export const adminCredibilitySchema = z.object({
+  points: z.number().int().refine((v) => v !== 0, 'Points cannot be zero'),
+  note: z.string().min(3).max(500),
+});
+export type AdminCredibilityInput = z.infer<typeof adminCredibilitySchema>;
+
 export const categoryPreferencesSchema = z.object({
   items: z.array(
     z.object({

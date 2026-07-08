@@ -77,6 +77,9 @@ model Account {
   type                 AccountType @default(PERSONAL)
   displayName          String
   displayNameChangedAt DateTime?
+  credibilityScore     Int         @default(0) // recomputed weekly; never shown below 0
+  credibilityTier      String      @default("NEW") // NEW/BRONZE/SILVER/GOLD/PLATINUM
+  flaggedForBlock      Boolean     @default(false) // raw score went negative (decision G3)
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
 
@@ -86,6 +89,69 @@ model Account {
   shopperDeals        Deal[]               @relation("shopperDeals")
   notifications       Notification[]
   categoryPreferences CategoryPreference[]
+  verifications       Verification[]
+  credibilityEvents   CredibilityEvent[]
+}
+
+// ── Trust: verification & credibility (docs/02 §8) ──
+
+/// Admin-configurable verifiable details: price, duration, points (docs/02 §3).
+model VerificationType {
+  id                String   @id @default(cuid())
+  key               String   @unique // FULL_NAME / PHONE / EMAIL / NATIONAL_ID / PHOTO_LIVENESS / …
+  nameEn            String
+  nameAr            String
+  priceUsd          Int      @default(0) // minor units; paid from the wallet; KEPT on rejection
+  credibilityPoints Int      @default(5)
+  durationDays      Int      @default(3) // "how long does it take"
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  verifications Verification[]
+}
+
+enum VerificationStatus {
+  NEW
+  STUDYING
+  VERIFIED
+  NEEDS_REVIEW
+  REJECTED
+}
+
+model Verification {
+  id              String             @id @default(cuid())
+  accountId       String
+  typeId          String
+  details         String?
+  socialCode      String? // code-in-profile method for Facebook/Instagram (decision F3)
+  status          VerificationStatus @default(NEW)
+  points          Int                @default(0) // snapshot applied when VERIFIED
+  decidedByUserId String?
+  decidedAt       DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  account Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  type    VerificationType @relation(fields: [typeId], references: [id])
+
+  @@index([accountId])
+  @@index([status])
+}
+
+/// Append-only credibility ledger. Weekly recompute derives Account.credibilityScore.
+model CredibilityEvent {
+  id           String   @id @default(cuid())
+  accountId    String
+  kind         String // VERIFICATION / TRIP / SHIPMENT / REVIEW / ADMIN
+  points       Int
+  timeWeighted Boolean  @default(true) // verifications & admin adjustments are not
+  refId        String? // verificationId / dealId / reviewId
+  note         String?
+  createdAt    DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
 }
 
 /// User ↔ Account link. Personal = one OWNER; Commercial = OWNER + MANAGERs (full permissions in v1).

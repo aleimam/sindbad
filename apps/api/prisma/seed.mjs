@@ -85,6 +85,29 @@ async function main() {
   }
   console.log(`Seeded ${COUNTRIES.length} countries.`);
 
+  // Verifiable details (spec "Verification") — prices/points/durations admin-editable.
+  const VERIFICATION_TYPES = [
+    // [key, nameEn, nameAr, priceUsd(minor), points, days]
+    ['FULL_NAME', 'Full name', 'الاسم الكامل', 200, 10, 2],
+    ['PHONE', 'Phone number', 'رقم الهاتف', 0, 5, 1],
+    ['EMAIL', 'Email', 'البريد الإلكتروني', 0, 3, 1],
+    ['NATIONAL_ID', 'National ID', 'الرقم القومي', 300, 15, 3],
+    ['PHOTO_LIVENESS', 'Live photo vs ID', 'صورة حية مطابقة للهوية', 300, 15, 3],
+    ['PASSPORT', 'Passport', 'جواز السفر', 300, 15, 3],
+    ['LOCAL_ADDRESS', 'Local address', 'العنوان المحلي', 200, 8, 5],
+    ['ABROAD_ADDRESS', 'Abroad address', 'العنوان بالخارج', 200, 8, 5],
+    ['FACEBOOK', 'Facebook account', 'حساب فيسبوك', 100, 4, 2],
+    ['INSTAGRAM', 'Instagram account', 'حساب إنستغرام', 100, 4, 2],
+  ];
+  for (const [key, nameEn, nameAr, priceUsd, credibilityPoints, durationDays] of VERIFICATION_TYPES) {
+    await prisma.verificationType.upsert({
+      where: { key },
+      create: { key, nameEn, nameAr, priceUsd, credibilityPoints, durationDays },
+      update: {},
+    });
+  }
+  console.log(`Seeded ${VERIFICATION_TYPES.length} verification types.`);
+
   await prisma.feeConfig.upsert({
     where: { id: 'GLOBAL' },
     create: { id: 'GLOBAL', basketMultiplier: 1.3, weightUsdPerKg: 300, floorFeeUsd: 500 },

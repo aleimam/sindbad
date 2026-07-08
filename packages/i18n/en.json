@@ -186,5 +186,12 @@
     "markAll": "Mark all read",
     "empty": "Nothing yet — matches and deal updates land here."
   },
+  "media": {
+    "addPhoto": "Add photo",
+    "uploading": "Uploading…",
+    "failed": "Upload failed",
+    "verificationDocs": "Verification documents",
+    "verificationHint": "Upload your flight details and passport photo — visible only to you and our team."
+  },
   "system": { "apiStatus": "API", "online": "online", "offline": "offline" }
 }

@@ -5,10 +5,11 @@ import { useLocale, useTranslations } from 'next-intl';
 import { ArrowRight, Plane } from 'lucide-react';
 import { Avatar, Button, Card, CategoryChip, StatusPill } from '@sindbad/ui';
 import { useRouter } from '@/i18n/navigation';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, mediaUrl } from '@/lib/api';
 import { fmtDate, fmtUsd, usdToCents } from '@/lib/format';
 import { localizedName, useApiGet } from '@/lib/use-api';
 import { useMe } from '@/lib/use-me';
+import { PhotoUploader } from '@/components/photo-uploader';
 import type { MatchEntry, Mission } from '@/lib/types';
 
 export default function TripDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -142,6 +143,27 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
 
       {isOwner ? (
         <div className="space-y-3">
+          <Card className="space-y-2.5 p-4">
+            <h2 className="text-sm font-semibold">{t('media.verificationDocs')}</h2>
+            <p className="text-[11px] text-slate">{t('media.verificationHint')}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              {(trip.data?.verificationDocs ?? []).map((docId) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={docId}
+                  src={mediaUrl(docId, 'thumb')}
+                  crossOrigin="use-credentials"
+                  alt=""
+                  className="h-14 w-14 rounded-button border border-slate-border object-cover"
+                />
+              ))}
+              <PhotoUploader
+                context="TRIP_VERIFICATION"
+                subjectId={id}
+                onDone={() => trip.refresh()}
+              />
+            </div>
+          </Card>
           {matches.data?.length ? (
             <div className="space-y-2">
               <h2 className="text-sm font-semibold">

@@ -10,4 +10,10 @@ export default () => ({
     accessSecret: process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret-change-me',
     accessTtlSec: parseInt(process.env.JWT_ACCESS_TTL_SEC ?? '900', 10), // 15 min
   },
+  minio: {
+    endpoint: process.env.MINIO_ENDPOINT ?? 'http://localhost:9000',
+    accessKey: process.env.MINIO_ACCESS_KEY ?? 'sindbad',
+    secretKey: process.env.MINIO_SECRET_KEY ?? 'sindbad123',
+    bucket: process.env.MINIO_BUCKET ?? 'sindbad',
+  },
 });

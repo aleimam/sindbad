@@ -5,10 +5,11 @@ import { useLocale, useTranslations } from 'next-intl';
 import { Package, ShoppingBasket } from 'lucide-react';
 import { Avatar, Button, Card, CategoryChip, StatusPill } from '@sindbad/ui';
 import { useRouter } from '@/i18n/navigation';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, mediaUrl } from '@/lib/api';
 import { fmtUsd, usdToCents } from '@/lib/format';
 import { localizedName, useApiGet } from '@/lib/use-api';
 import { useMe } from '@/lib/use-me';
+import { PhotoUploader } from '@/components/photo-uploader';
 import type { MatchEntry, Mission } from '@/lib/types';
 
 export default function ShipmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -19,6 +20,7 @@ export default function ShipmentDetailPage({ params }: { params: Promise<{ id: s
   const { me } = useMe();
 
   const shipment = useApiGet<Mission>(`/shipments/${id}`);
+  const refreshShipment = shipment.refresh;
   const matches = useApiGet<MatchEntry[]>(me ? `/shipments/${id}/matches` : null);
   const myMissions = useApiGet<Mission[]>(me ? '/shipments/mine' : null);
 
@@ -100,6 +102,28 @@ export default function ShipmentDetailPage({ params }: { params: Promise<{ id: s
                 <span className="text-xs text-slate">{fmtUsd(it.declaredValueUsd)}</span>
               ) : null}
             </div>
+            {it.photos?.length || isOwner ? (
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {(it.photos ?? []).map((photoId) => (
+                  <a
+                    key={photoId}
+                    href={mediaUrl(photoId, 'md')}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={mediaUrl(photoId, 'thumb')}
+                      alt=""
+                      className="h-14 w-14 rounded-button border border-slate-border object-cover"
+                    />
+                  </a>
+                ))}
+                {isOwner ? (
+                  <PhotoUploader context="ITEM_PHOTO" subjectId={it.id} onDone={refreshShipment} />
+                ) : null}
+              </div>
+            ) : null}
           </Card>
         ))}
       </div>

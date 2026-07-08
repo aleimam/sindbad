@@ -292,6 +292,32 @@ model Match {
   @@index([shipmentMissionId])
 }
 
+// ── Media (docs/02 §12 — one polymorphic Attachment model) ──
+
+enum AttachmentContext {
+  ITEM_PHOTO
+  TRIP_VERIFICATION
+  CHAT
+  KYC
+  REVIEW
+}
+
+/// Uploaded file: original + compressed + thumbnail variants in MinIO.
+/// `isPrivate` gates serving (owner/staff only) — KYC & trip docs are private.
+model Attachment {
+  id             String            @id @default(cuid())
+  ownerAccountId String
+  context        AttachmentContext
+  subjectId      String // itemId / missionId / messageId / …
+  mime           String
+  sizeBytes      Int
+  isPrivate      Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+
+  @@index([context, subjectId])
+  @@index([ownerAccountId])
+}
+
 /// In-app notifications (email/SMS channels land in Phase 5; push in v2).
 model Notification {
   id        String    @id @default(cuid())

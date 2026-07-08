@@ -37,6 +37,7 @@ export interface ItemData {
   declaredValueUsd: number | null;
   notes: string | null;
   category?: { id: string; nameEn: string; nameAr: string };
+  photos?: string[]; // attachment ids
 }
 
 export interface ShipmentData {
@@ -58,6 +59,7 @@ export interface Mission {
   trip?: TripData | null;
   shipment?: ShipmentData | null;
   isOwner?: boolean;
+  verificationDocs?: string[]; // attachment ids (owner-only)
 }
 
 export interface MatchEntry {

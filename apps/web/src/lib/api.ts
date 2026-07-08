@@ -28,3 +28,19 @@ export async function api<T>(
   if (!res.ok) throw new ApiError(res.status, data);
   return data as T;
 }
+
+/** Multipart upload (images). */
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  const res = await fetch(`${API_URL}/api${path}`, {
+    method: 'POST',
+    body: form,
+    credentials: 'include',
+  });
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) throw new ApiError(res.status, data);
+  return data as T;
+}
+
+export function mediaUrl(id: string, variant: 'original' | 'md' | 'thumb') {
+  return `${API_URL}/api/media/${id}/${variant}`;
+}

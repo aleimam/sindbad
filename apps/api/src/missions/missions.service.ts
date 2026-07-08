@@ -12,6 +12,7 @@ import type {
 } from '@sindbad/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { MatchingService } from '../matching/matching.service';
+import { MediaService } from '../media/media.service';
 import { classifyTripEdit, dateOrderError } from './trip-rules';
 
 /** Deal statuses that count as "accepted" for the edit rules. */
@@ -46,6 +47,7 @@ export class MissionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly matching: MatchingService,
+    private readonly media: MediaService,
   ) {}
 
   /** Fire-and-forget match recomputation after mission changes. */
@@ -183,12 +185,38 @@ export class MissionsService {
     if (!mission) throw new NotFoundException('Mission not found');
 
     const isOwner = viewerAccountId === mission.accountId;
+
+    // Item photos are public; group attachment ids onto each item.
+    let itemPhotos: Record<string, string[]> = {};
+    if (mission.shipment) {
+      const photos = await this.media.listForSubjects(
+        'ITEM_PHOTO',
+        mission.shipment.items.map((i) => i.id),
+      );
+      itemPhotos = photos.reduce<Record<string, string[]>>((acc, p) => {
+        (acc[p.subjectId] ??= []).push(p.id);
+        return acc;
+      }, {});
+    }
+    const shipment = mission.shipment
+      ? {
+          ...mission.shipment,
+          items: mission.shipment.items.map((i) => ({ ...i, photos: itemPhotos[i.id] ?? [] })),
+        }
+      : mission.shipment;
+
+    // Verification docs are private — surfaced to the owner only (staff use the admin queue).
+    const verificationDocs =
+      isOwner && mission.trip
+        ? (await this.media.listForSubjects('TRIP_VERIFICATION', [missionId])).map((a) => a.id)
+        : undefined;
+
     if (!isOwner && mission.trip) {
       // Strip the private fields for non-owners.
       const { tripDate: _t, receivingAddress: _a, ...publicTrip } = mission.trip;
-      return { ...mission, trip: publicTrip, isOwner };
+      return { ...mission, trip: publicTrip, shipment, isOwner };
     }
-    return { ...mission, isOwner };
+    return { ...mission, shipment, isOwner, verificationDocs };
   }
 
   // ── Edits (spec "Users can update their trips" — docs/02 §3) ──────────────
@@ -414,12 +442,21 @@ export class MissionsService {
 
   // ── Admin approval ─────────────────────────────────────────────────────────
 
-  pendingTrips() {
-    return this.prisma.mission.findMany({
+  async pendingTrips() {
+    const missions = await this.prisma.mission.findMany({
       where: { kind: 'TRIP', status: 'PENDING_APPROVAL' },
       include: { ...MISSION_INCLUDE_PUBLIC, trip: true },
       orderBy: { createdAt: 'asc' },
     });
+    // Attach verification-doc ids so staff can review flight/passport uploads.
+    const docs = await this.media.listForSubjects(
+      'TRIP_VERIFICATION',
+      missions.map((m) => m.id),
+    );
+    return missions.map((m) => ({
+      ...m,
+      verificationDocs: docs.filter((d) => d.subjectId === m.id).map((d) => d.id),
+    }));
   }
 
   async approveTrip(missionId: string) {

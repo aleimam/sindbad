@@ -11,6 +11,7 @@ interface PendingTrip {
   origin: { nameEn: string };
   destination: { nameEn: string };
   account: { displayName: string; type: string };
+  verificationDocs: string[];
   trip: {
     receivingStart: string | null;
     receivingEnd: string;
@@ -21,6 +22,9 @@ interface PendingTrip {
     travelerCount: number;
   };
 }
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+const mediaUrl = (id: string, v: string) => `${API_URL}/api/media/${id}/${v}`;
 
 const d = (s: string | null) => (s ? new Date(s).toLocaleDateString('en-GB') : 'open');
 
@@ -75,6 +79,23 @@ export default function TripApprovalsPage() {
                   {t.trip.deliveryLocation} · {t.trip.availableWeightKg} kg ·{' '}
                   {t.trip.travelerCount} traveler(s)
                 </div>
+                {t.verificationDocs.length ? (
+                  <div className="flex flex-wrap gap-2 pt-1.5">
+                    {t.verificationDocs.map((docId) => (
+                      <a key={docId} href={mediaUrl(docId, 'original')} target="_blank" rel="noreferrer">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={mediaUrl(docId, 'thumb')}
+                          crossOrigin="use-credentials"
+                          alt="verification doc"
+                          className="h-16 w-16 rounded-button border border-slate-border object-cover"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="pt-1 text-[11px] text-amber">No verification documents uploaded</div>
+                )}
               </div>
               <div className="flex gap-2">
                 <Button size="sm" disabled={busy === t.id} onClick={() => decide(t.id, 'approve')}>

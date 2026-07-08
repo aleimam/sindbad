@@ -622,6 +622,42 @@ model FxRate {
   createdAt DateTime @default(now())
 }
 
+// ── Chat (docs/02 §9 — full-featured in v1) ──
+
+/// One thread per account pair (IDs stored ordered: accountAId < accountBId).
+model ChatThread {
+  id            String   @id @default(cuid())
+  accountAId    String
+  accountBId    String
+  createdAt     DateTime @default(now())
+  lastMessageAt DateTime @default(now())
+
+  messages ChatMessage[]
+
+  @@unique([accountAId, accountBId])
+  @@index([accountAId, lastMessageAt])
+  @@index([accountBId, lastMessageAt])
+}
+
+model ChatMessage {
+  id              String    @id @default(cuid())
+  threadId        String
+  senderAccountId String
+  body            String? // null once unsent (tombstone) or for photo-only messages
+  replyToId       String?
+  editedAt        DateTime? // edits allowed within 15 minutes (spec)
+  unsentAt        DateTime?
+  deliveredAt     DateTime? // ✓✓ gray
+  readAt          DateTime? // ✓✓ blue
+  createdAt       DateTime  @default(now())
+
+  thread  ChatThread    @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  replyTo ChatMessage?  @relation("reply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies ChatMessage[] @relation("reply")
+
+  @@index([threadId, createdAt])
+}
+
 // ── Media (docs/02 §12 — one polymorphic Attachment model) ──
 
 enum AttachmentContext {

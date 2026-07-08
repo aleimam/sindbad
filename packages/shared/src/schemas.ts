@@ -332,6 +332,24 @@ export const userFlagSchema = z.object({
 });
 export type UserFlagInput = z.infer<typeof userFlagSchema>;
 
+// ── Chat ──
+
+export const openThreadSchema = z.object({
+  accountId: z.string().min(1),
+});
+export type OpenThreadInput = z.infer<typeof openThreadSchema>;
+
+export const sendMessageSchema = z.object({
+  body: z.string().max(4000).optional(),
+  replyToId: z.string().min(1).optional(),
+});
+export type SendMessageInput = z.infer<typeof sendMessageSchema>;
+
+export const editMessageSchema = z.object({
+  body: z.string().min(1).max(4000),
+});
+export type EditMessageInput = z.infer<typeof editMessageSchema>;
+
 export const categoryPreferencesSchema = z.object({
   items: z.array(
     z.object({

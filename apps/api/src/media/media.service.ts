@@ -144,8 +144,16 @@ export class MediaService {
           throw new ForbiddenException('Not your verification');
         return;
       }
+      case 'CHAT': {
+        // Chat photos attach to your own message (spec: compressed automatically).
+        const message = await this.prisma.chatMessage.findUnique({ where: { id: subjectId } });
+        if (!message) throw new NotFoundException('Message not found');
+        if (message.senderAccountId !== accountId)
+          throw new ForbiddenException('Not your message');
+        return;
+      }
       default:
-        // CHAT / REVIEW subjects arrive with their modules.
+        // REVIEW subjects arrive with their module.
         throw new BadRequestException(`Uploads for ${context} are not enabled yet`);
     }
   }

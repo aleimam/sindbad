@@ -12,6 +12,7 @@ import { PreferencesModule } from './preferences/preferences.module';
 import { MediaModule } from './media/media.module';
 import { MoneyModule } from './money/money.module';
 import { TrustModule } from './trust/trust.module';
+import { ChatModule } from './chat/chat.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { MatchingModule } from './matching/matching.module';
 import { MissionsModule } from './missions/missions.module';
@@ -33,6 +34,7 @@ import { MetaModule } from './meta/meta.module';
     MediaModule,
     MoneyModule,
     TrustModule,
+    ChatModule,
     CatalogModule,
     MatchingModule,
     MissionsModule,

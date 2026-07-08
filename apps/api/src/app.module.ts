@@ -10,6 +10,7 @@ import { AccountsModule } from './accounts/accounts.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PreferencesModule } from './preferences/preferences.module';
 import { MediaModule } from './media/media.module';
+import { MoneyModule } from './money/money.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { MatchingModule } from './matching/matching.module';
 import { MissionsModule } from './missions/missions.module';
@@ -29,6 +30,7 @@ import { MetaModule } from './meta/meta.module';
     NotificationsModule,
     PreferencesModule,
     MediaModule,
+    MoneyModule,
     CatalogModule,
     MatchingModule,
     MissionsModule,

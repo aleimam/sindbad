@@ -9,6 +9,8 @@ import type { Deal, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MatchingService } from '../matching/matching.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { LedgerService } from '../money/ledger.service';
+import { escrowAmountMinor } from '../money/fee-engine';
 import { shipmentTotalWeight } from '../matching/matching';
 import {
   canAccept,
@@ -47,6 +49,7 @@ export class DealsService {
     private readonly matching: MatchingService,
     private readonly flags: FlagsService,
     private readonly notifications: NotificationsService,
+    private readonly ledger: LedgerService,
   ) {}
 
   /** Notify the counterpart of an acting party (fire-and-forget). */
@@ -154,6 +157,14 @@ export class DealsService {
     });
     const weight = shipmentTotalWeight(shipment?.items ?? []);
 
+    // In-app deals escrow on acceptance (docs/02 §4): Box = fee; Basket = fee + price.
+    const escrowMinor =
+      deal.paymentMethod === 'IN_APP'
+        ? escrowAmountMinor(shipment?.type ?? 'BOX', deal.feeUsd, shipment?.items ?? [])
+        : 0;
+    const shopperWalletId =
+      escrowMinor > 0 ? await this.ledger.ensureWallet(deal.shopperAccountId) : null;
+
     const updated = await this.prisma.$transaction(async (tx) => {
       // Deplete available weight for one-time trips (cyclic trips keep full capacity).
       if (tripMission && !tripMission.isCyclic) {
@@ -166,16 +177,30 @@ export class DealsService {
           data: { availableWeightKg: { decrement: weight } },
         });
       }
+      // Fund escrow atomically with the acceptance (aborts on insufficient balance).
+      if (escrowMinor > 0 && shopperWalletId) {
+        await this.ledger.post({
+          type: 'ESCROW_FUND',
+          dealId,
+          entries: [
+            { walletId: shopperWalletId, currency: 'USD', amountMinor: -escrowMinor },
+            { systemAccount: 'ESCROW', currency: 'USD', amountMinor: escrowMinor },
+          ],
+          tx,
+        });
+      }
       return tx.deal.update({
         where: { id: dealId },
         data: {
           status: 'ONGOING',
           ongoingStep: null,
+          escrowedUsd: escrowMinor,
           events: {
             create: [
               { type: 'accepted', data: { accountId: actingAccountId, feeUsd: deal.feeUsd } },
-              // Phase 3 replaces this stub with the real escrow transaction.
-              { type: 'escrow.stub', data: { note: 'IN_APP escrow lands in Phase 3 (money)' } },
+              ...(escrowMinor > 0
+                ? [{ type: 'escrow.funded', data: { amountMinor: escrowMinor } }]
+                : []),
             ],
           },
         },
@@ -285,18 +310,38 @@ export class DealsService {
         'This deal is flagged — both parties must approve a resolution before completing',
       );
 
-    const updated = await this.prisma.deal.update({
-      where: { id: dealId },
-      data: {
-        status: 'COMPLETED',
-        events: {
-          create: [
-            { type: 'completed', data: { accountId: actingAccountId } },
-            { type: 'escrow.stub', data: { note: 'escrow release lands in Phase 3 (money)' } },
+    // Escrow releases to the traveler on completion (commission = 0 at launch).
+    const travelerWalletId =
+      deal.escrowedUsd > 0 ? await this.ledger.ensureWallet(deal.travelerAccountId) : null;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (deal.escrowedUsd > 0 && travelerWalletId) {
+        await this.ledger.post({
+          type: 'ESCROW_RELEASE',
+          dealId,
+          entries: [
+            { systemAccount: 'ESCROW', currency: 'USD', amountMinor: -deal.escrowedUsd },
+            { walletId: travelerWalletId, currency: 'USD', amountMinor: deal.escrowedUsd },
           ],
+          tx,
+        });
+      }
+      return tx.deal.update({
+        where: { id: dealId },
+        data: {
+          status: 'COMPLETED',
+          escrowedUsd: 0,
+          events: {
+            create: [
+              { type: 'completed', data: { accountId: actingAccountId } },
+              ...(deal.escrowedUsd > 0
+                ? [{ type: 'escrow.released', data: { amountMinor: deal.escrowedUsd } }]
+                : []),
+            ],
+          },
         },
-      },
-      include: DEAL_INCLUDE,
+        include: DEAL_INCLUDE,
+      });
     });
     this.notifyOther(updated, actingAccountId, 'Your deal was completed 🎉');
     return this.serialize(updated, actingAccountId);
@@ -406,6 +451,10 @@ export class DealsService {
     const deal = await this.prisma.deal.findUnique({ where: { id: dealId } });
     if (!deal) throw new NotFoundException('Deal not found');
 
+    // Any escrowed funds return to the shopper on cancellation (docs/02 §3).
+    const shopperWalletId =
+      deal.escrowedUsd > 0 ? await this.ledger.ensureWallet(deal.shopperAccountId) : null;
+
     return this.prisma.$transaction(async (tx) => {
       // Restore depleted weight if the deal had been accepted on a one-time trip.
       if (deal.status !== 'REQUESTED' && deal.status !== 'NEGOTIATING') {
@@ -421,11 +470,23 @@ export class DealsService {
           });
         }
       }
+      if (deal.escrowedUsd > 0 && shopperWalletId) {
+        await this.ledger.post({
+          type: 'ESCROW_REFUND',
+          dealId,
+          entries: [
+            { systemAccount: 'ESCROW', currency: 'USD', amountMinor: -deal.escrowedUsd },
+            { walletId: shopperWalletId, currency: 'USD', amountMinor: deal.escrowedUsd },
+          ],
+          tx,
+        });
+      }
       return tx.deal.update({
         where: { id: dealId },
         data: {
           status: 'CANCELLED',
           cancelReason: meta.reason,
+          escrowedUsd: 0,
           events: {
             create: [
               {
@@ -436,8 +497,9 @@ export class DealsService {
                   staffUserId: meta.staffUserId ?? null,
                 },
               },
-              // Phase 3 replaces this with the real escrow refund.
-              { type: 'escrow.stub', data: { note: 'refund lands in Phase 3 (money)' } },
+              ...(deal.escrowedUsd > 0
+                ? [{ type: 'escrow.refunded', data: { amountMinor: deal.escrowedUsd } }]
+                : []),
             ],
           },
         },

@@ -205,6 +205,40 @@ export const resolutionSchema = z.object({
 });
 export type ResolutionInput = z.infer<typeof resolutionSchema>;
 
+// ── Money ──
+
+export const feeEstimateSchema = z.object({
+  originCountryId: z.string().min(1),
+  destinationCountryId: z.string().min(1),
+  type: z.enum(['BOX', 'BASKET']),
+  items: z
+    .array(
+      z.object({
+        categoryId: z.string().min(1),
+        volumetricWeightKg: z.number().positive().max(1000),
+        count: z.number().int().min(1).max(1000).default(1),
+      }),
+    )
+    .min(1)
+    .max(50),
+});
+export type FeeEstimateInput = z.infer<typeof feeEstimateSchema>;
+
+export const adminAdjustSchema = z.object({
+  accountId: z.string().min(1),
+  currency: z.enum(['USD', 'EGP']),
+  amountMinor: z.number().int().refine((v) => v !== 0, 'Amount cannot be zero'),
+  note: z.string().min(3).max(500),
+});
+export type AdminAdjustInput = z.infer<typeof adminAdjustSchema>;
+
+export const feeConfigSchema = z.object({
+  basketMultiplier: z.number().positive().max(10),
+  weightUsdPerKg: z.number().int().min(0),
+  floorFeeUsd: z.number().int().min(0),
+});
+export type FeeConfigInput = z.infer<typeof feeConfigSchema>;
+
 export const categoryPreferencesSchema = z.object({
   items: z.array(
     z.object({

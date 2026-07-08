@@ -292,6 +292,101 @@ model Match {
   @@index([shipmentMissionId])
 }
 
+// ── Money: wallet & double-entry ledger (docs/02 §4 — approved) ──
+// Integer minor units only. Balances are maintained transactionally with the
+// entries and can always be recomputed from them. Corrections = reversing entries.
+
+enum Currency {
+  USD
+  EGP
+}
+
+enum SystemAccount {
+  ESCROW // funds frozen for in-flight deals (liability)
+  GATEWAY_CLEARING // money in transit from card/Apple Pay gateways (asset)
+  COMPANY_BANK // the real bank account backing the ledger (asset)
+  WITHDRAWALS_PAYABLE // approved withdrawals awaiting payout (liability)
+  PLATFORM_REVENUE // commission/fees/FX spread — 0 at launch (income)
+  FX // FX conversion legs
+}
+
+enum LedgerTxType {
+  DEPOSIT
+  WITHDRAWAL_HOLD
+  WITHDRAWAL_EXECUTE
+  WITHDRAWAL_RELEASE
+  TRANSFER
+  ESCROW_FUND
+  ESCROW_RELEASE
+  ESCROW_REFUND
+  ESCROW_TOPUP
+  ADMIN_ADJUSTMENT
+  FX_CONVERT
+}
+
+model Wallet {
+  id        String   @id @default(cuid())
+  accountId String   @unique
+  createdAt DateTime @default(now())
+
+  balances WalletBalance[]
+  entries  LedgerEntry[]
+}
+
+/// Materialized balance per currency — updated in the same transaction as the
+/// entries; never edited directly. Negative balances are rejected at post time.
+model WalletBalance {
+  walletId     String
+  currency     Currency
+  balanceMinor Int      @default(0)
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@id([walletId, currency])
+}
+
+/// One business money movement. Its entries MUST sum to zero per currency.
+model LedgerTransaction {
+  id          String       @id @default(cuid())
+  type        LedgerTxType
+  dealId      String?
+  actorUserId String?
+  note        String?
+  createdAt   DateTime     @default(now())
+
+  entries LedgerEntry[]
+
+  @@index([dealId])
+  @@index([type, createdAt])
+}
+
+/// A single leg: exactly one of walletId / systemAccount is set. Immutable.
+model LedgerEntry {
+  id            String         @id @default(cuid())
+  transactionId String
+  walletId      String?
+  systemAccount SystemAccount?
+  currency      Currency
+  amountMinor   Int // signed; positive = credit to this account
+  createdAt     DateTime       @default(now())
+
+  transaction LedgerTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  wallet      Wallet?           @relation(fields: [walletId], references: [id])
+
+  @@index([walletId, createdAt])
+  @@index([systemAccount, currency])
+}
+
+/// Global fee-engine parameters (docs/02 §4): Fee/item = B·T·(W×kg)·C; Fee/deal = F + Σ.
+/// C = origin.priceParam × destination.priceParam; T = category.typeMultiplier.
+model FeeConfig {
+  id               String   @id @default("GLOBAL")
+  basketMultiplier Float    @default(1.3) // B (Box = 1)
+  weightUsdPerKg   Int      @default(300) // W in minor units per kg
+  floorFeeUsd      Int      @default(500) // F in minor units
+  updatedAt        DateTime @updatedAt
+}
+
 // ── Media (docs/02 §12 — one polymorphic Attachment model) ──
 
 enum AttachmentContext {
@@ -444,7 +539,8 @@ model Deal {
   status               DealStatus    @default(REQUESTED)
   ongoingStep          OngoingStep?
   paymentMethod        PaymentMethod @default(CASH)
-  feeUsd               Int // agreed fee, minor units (escrow lands Phase 3)
+  feeUsd               Int // agreed fee, minor units
+  escrowedUsd          Int           @default(0) // currently held in escrow for this deal
   travelerPaysAllCustoms Boolean     @default(false) // exempts the deal from trip-level CUSTOMS flags
   cancelReason         String?
   createdAt            DateTime      @default(now())

@@ -85,6 +85,13 @@ async function main() {
   }
   console.log(`Seeded ${COUNTRIES.length} countries.`);
 
+  await prisma.feeConfig.upsert({
+    where: { id: 'GLOBAL' },
+    create: { id: 'GLOBAL', basketMultiplier: 1.3, weightUsdPerKg: 300, floorFeeUsd: 500 },
+    update: {},
+  });
+  console.log('Seeded fee config (B=1.3, W=$3/kg, F=$5).');
+
   const existingCategories = await prisma.category.count();
   if (existingCategories === 0) {
     await prisma.category.createMany({

@@ -6,6 +6,7 @@ import { Bell, MessageCircle, Moon, Sun } from 'lucide-react';
 import { Avatar } from '@sindbad/ui';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { useMe } from '@/lib/use-me';
+import { useApiGet } from '@/lib/use-api';
 
 export function Header() {
   const t = useTranslations();
@@ -14,6 +15,7 @@ export function Header() {
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
   const { me } = useMe();
+  const { data: unread } = useApiGet<{ count: number }>(me ? '/notifications/unread-count' : null);
 
   const otherLocale = locale === 'ar' ? 'en' : 'ar';
   const displayName = me?.memberships[0]?.account.displayName ?? me?.email ?? me?.phone ?? '';
@@ -54,6 +56,11 @@ export function Header() {
               className="relative text-slate-dark dark:text-offwhite"
             >
               <Bell className="h-5 w-5" />
+              {unread && unread.count > 0 ? (
+                <span className="absolute -end-1.5 -top-1.5 rounded-pill bg-royal px-1 text-[9px] font-semibold leading-3.5 text-white">
+                  {unread.count > 9 ? '9+' : unread.count}
+                </span>
+              ) : null}
             </button>
             <button
               type="button"

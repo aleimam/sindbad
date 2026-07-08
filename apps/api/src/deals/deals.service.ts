@@ -8,6 +8,7 @@ import type { RequestDealInput } from '@sindbad/shared';
 import type { Deal, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MatchingService } from '../matching/matching.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { shipmentTotalWeight } from '../matching/matching';
 import {
   canAccept,
@@ -45,7 +46,19 @@ export class DealsService {
     private readonly prisma: PrismaService,
     private readonly matching: MatchingService,
     private readonly flags: FlagsService,
+    private readonly notifications: NotificationsService,
   ) {}
+
+  /** Notify the counterpart of an acting party (fire-and-forget). */
+  private notifyOther(
+    deal: { travelerAccountId: string; shopperAccountId: string; id: string },
+    actingAccountId: string,
+    body: string,
+  ) {
+    const other =
+      deal.travelerAccountId === actingAccountId ? deal.shopperAccountId : deal.travelerAccountId;
+    void this.notifications.notify(other, 'DEAL', body, { dealId: deal.id });
+  }
 
   // ── Request & negotiation ─────────────────────────────────────────────────
 
@@ -99,6 +112,7 @@ export class DealsService {
       },
       include: DEAL_INCLUDE,
     });
+    this.notifyOther(deal, actingAccountId, 'You have a new deal request');
     return this.serialize(deal, actingAccountId);
   }
 
@@ -116,6 +130,7 @@ export class DealsService {
       },
       include: DEAL_INCLUDE,
     });
+    this.notifyOther(updated, actingAccountId, 'New fee offer on your deal');
     return this.serialize(updated, actingAccountId);
   }
 
@@ -167,6 +182,7 @@ export class DealsService {
         include: DEAL_INCLUDE,
       });
     });
+    this.notifyOther(updated, actingAccountId, 'Your deal was accepted');
     return this.serialize(updated, actingAccountId);
   }
 
@@ -192,6 +208,7 @@ export class DealsService {
       },
       include: DEAL_INCLUDE,
     });
+    this.notifyOther(updated, actingAccountId, `Deal update: ${next.step.replaceAll('_', ' ').toLowerCase()}`);
     return this.serialize(updated, actingAccountId);
   }
 
@@ -243,6 +260,11 @@ export class DealsService {
       ),
     );
     await this.flags.clearDelayedFlags(eligible.map((d) => d.id));
+    // Spec: notify every shopper on the trip to pick up their deals.
+    for (const d of eligible)
+      void this.notifications.notify(d.shopperAccountId, 'DEAL', 'Your deal is ready for pickup', {
+        dealId: d.id,
+      });
     return { readyForPickup: eligible.length };
   }
 
@@ -276,6 +298,7 @@ export class DealsService {
       },
       include: DEAL_INCLUDE,
     });
+    this.notifyOther(updated, actingAccountId, 'Your deal was completed 🎉');
     return this.serialize(updated, actingAccountId);
   }
 
@@ -316,6 +339,7 @@ export class DealsService {
           },
         }),
       ]);
+      this.notifyOther(deal, actingAccountId, 'A cancellation was requested on your deal');
       return { pendingStaffApproval: true as const };
     }
 
@@ -323,6 +347,7 @@ export class DealsService {
       byAccountId: actingAccountId,
       reason,
     });
+    this.notifyOther(updated, actingAccountId, 'Your deal was cancelled');
     return this.serialize(updated, actingAccountId);
   }
 
@@ -353,11 +378,13 @@ export class DealsService {
     });
 
     if (approve) {
-      await this.executeCancellation(request.dealId, {
+      const cancelled = await this.executeCancellation(request.dealId, {
         byAccountId: request.requestedByAccountId,
         reason: request.reason,
         staffUserId,
       });
+      void this.notifications.notify(cancelled.travelerAccountId, 'DEAL', 'Deal cancelled (approved by staff)', { dealId: cancelled.id });
+      void this.notifications.notify(cancelled.shopperAccountId, 'DEAL', 'Deal cancelled (approved by staff)', { dealId: cancelled.id });
     } else {
       await this.prisma.dealEvent.create({
         data: {
@@ -366,6 +393,7 @@ export class DealsService {
           data: { staffUserId },
         },
       });
+      void this.notifications.notify(request.requestedByAccountId, 'DEAL', 'Your cancellation request was declined', { dealId: request.dealId });
     }
     return { ok: true, approved: approve };
   }

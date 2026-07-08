@@ -11,6 +11,7 @@ import type {
   UpdateTripInput,
 } from '@sindbad/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { MatchingService } from '../matching/matching.service';
 import { classifyTripEdit, dateOrderError } from './trip-rules';
 
 /** Deal statuses that count as "accepted" for the edit rules. */
@@ -42,7 +43,15 @@ const MISSION_INCLUDE_PUBLIC = {
 
 @Injectable()
 export class MissionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly matching: MatchingService,
+  ) {}
+
+  /** Fire-and-forget match recomputation after mission changes. */
+  private resync(missionId: string) {
+    void this.matching.syncMatchesForMission(missionId).catch(() => undefined);
+  }
 
   // ── Trips ──────────────────────────────────────────────────────────────────
 
@@ -88,7 +97,7 @@ export class MissionsService {
     await this.assertCyclicAllowed(accountId, input.isCyclic);
     await this.assertCategories(input.items.map((i) => i.categoryId));
 
-    return this.prisma.mission.create({
+    const mission = await this.prisma.mission.create({
       data: {
         accountId,
         kind: 'SHIPMENT',
@@ -117,6 +126,8 @@ export class MissionsService {
       },
       include: { shipment: { include: { items: true } } },
     });
+    this.resync(mission.id);
+    return mission;
   }
 
   // ── Browse (public: private fields excluded) ───────────────────────────────
@@ -270,6 +281,7 @@ export class MissionsService {
       return { updated: true, pendingApproval: true, changeRequestId: changeRequest.id };
     }
 
+    this.resync(missionId); // weight/categories changed → matches may change
     return { updated: true, pendingApproval: false };
   }
 
@@ -320,6 +332,7 @@ export class MissionsService {
         });
       }
     });
+    this.resync(missionId);
     return { updated: true };
   }
 
@@ -387,7 +400,12 @@ export class MissionsService {
 
   async approveTrip(missionId: string) {
     await this.assertPendingTrip(missionId);
-    return this.prisma.mission.update({ where: { id: missionId }, data: { status: 'ACTIVE' } });
+    const mission = await this.prisma.mission.update({
+      where: { id: missionId },
+      data: { status: 'ACTIVE' },
+    });
+    this.resync(missionId); // an approved trip starts matching immediately
+    return mission;
   }
 
   async rejectTrip(missionId: string) {

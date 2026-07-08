@@ -1,5 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { evaluateMatch, shipmentTotalWeight, type TripForMatch } from './matching';
 
 /**
@@ -9,7 +11,118 @@ import { evaluateMatch, shipmentTotalWeight, type TripForMatch } from './matchin
  */
 @Injectable()
 export class MatchingService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(MatchingService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
+
+  // ── Stored matches: sync on mission events + periodic sweep (docs/02 §5) ──
+
+  /** Recompute the stored Match rows for one mission; notify both parties of new pairs once. */
+  async syncMatchesForMission(missionId: string) {
+    const mission = await this.prisma.mission.findUnique({ where: { id: missionId } });
+    if (!mission) return { created: 0 };
+
+    const side = mission.kind === 'TRIP' ? 'tripMissionId' : 'shipmentMissionId';
+    if (mission.status !== 'ACTIVE') {
+      await this.prisma.match.updateMany({
+        where: { [side]: missionId, active: true },
+        data: { active: false },
+      });
+      return { created: 0 };
+    }
+
+    const entries =
+      mission.kind === 'TRIP'
+        ? await this.shipmentsForTrip(missionId)
+        : await this.tripsForShipment(missionId);
+
+    const pairs = entries.map((e) => ({
+      tripMissionId: mission.kind === 'TRIP' ? missionId : e.mission.id,
+      shipmentMissionId: mission.kind === 'TRIP' ? e.mission.id : missionId,
+      askFlagged: e.askFlagged,
+      otherAccountId: e.mission.account.id,
+    }));
+
+    // Deactivate pairs that stopped matching.
+    await this.prisma.match.updateMany({
+      where: {
+        [side]: missionId,
+        active: true,
+        NOT: pairs.map((p) => ({
+          tripMissionId: p.tripMissionId,
+          shipmentMissionId: p.shipmentMissionId,
+        })),
+      },
+      data: { active: false },
+    });
+
+    let created = 0;
+    for (const pair of pairs) {
+      const match = await this.prisma.match.upsert({
+        where: {
+          tripMissionId_shipmentMissionId: {
+            tripMissionId: pair.tripMissionId,
+            shipmentMissionId: pair.shipmentMissionId,
+          },
+        },
+        create: {
+          tripMissionId: pair.tripMissionId,
+          shipmentMissionId: pair.shipmentMissionId,
+          askFlagged: pair.askFlagged,
+        },
+        update: { active: true, askFlagged: pair.askFlagged },
+      });
+
+      // Notify both owners exactly once per pair (spec: notify on new matching missions).
+      if (!match.notifiedAt) {
+        created += 1;
+        const data = {
+          tripMissionId: pair.tripMissionId,
+          shipmentMissionId: pair.shipmentMissionId,
+        };
+        await this.notifications.notify(
+          mission.accountId,
+          'MATCH',
+          mission.kind === 'TRIP'
+            ? 'A new shipment matches your trip'
+            : 'A new trip matches your shipment',
+          data,
+        );
+        await this.notifications.notify(
+          pair.otherAccountId,
+          'MATCH',
+          mission.kind === 'TRIP'
+            ? 'A new trip matches your shipment'
+            : 'A new shipment matches your trip',
+          data,
+        );
+        await this.prisma.match.update({
+          where: { id: match.id },
+          data: { notifiedAt: new Date() },
+        });
+      }
+    }
+    return { created };
+  }
+
+  /** Hourly reconciliation sweep over active trips (covers window expiry etc.). */
+  @Cron(CronExpression.EVERY_HOUR)
+  async matchesSweep() {
+    try {
+      const trips = await this.prisma.mission.findMany({
+        where: { kind: 'TRIP', status: 'ACTIVE' },
+        select: { id: true },
+        take: 500,
+      });
+      for (const trip of trips) await this.syncMatchesForMission(trip.id);
+      if (trips.length) this.logger.log(`Match sweep over ${trips.length} trip(s) done`);
+    } catch (err) {
+      this.logger.warn(`Match sweep skipped: ${(err as Error).message}`);
+    }
+  }
 
   async shipmentsForTrip(tripMissionId: string) {
     const mission = await this.prisma.mission.findUnique({

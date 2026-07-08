@@ -84,6 +84,7 @@ model Account {
   missions      Mission[]
   travelerDeals Deal[]          @relation("travelerDeals")
   shopperDeals  Deal[]          @relation("shopperDeals")
+  notifications Notification[]
 }
 
 /// User ↔ Account link. Personal = one OWNER; Commercial = OWNER + MANAGERs (full permissions in v1).
@@ -264,9 +265,46 @@ model Mission {
   shipment      Shipment?
   dealsAsTrip     Deal[] @relation("dealTrip")
   dealsAsShipment Deal[] @relation("dealShipment")
+  matchesAsTrip     Match[] @relation("matchTrip")
+  matchesAsShipment Match[] @relation("matchShipment")
 
   @@index([kind, status, originCountryId, destinationCountryId])
   @@index([accountId])
+}
+
+/// Stored trip↔shipment pairing (docs/02 §5) — notification dedup + matched lists.
+model Match {
+  id                String    @id @default(cuid())
+  tripMissionId     String
+  shipmentMissionId String
+  askFlagged        Boolean   @default(false)
+  active            Boolean   @default(true) // false once the pair stops matching
+  notifiedAt        DateTime? // both parties notified exactly once
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tripMission     Mission @relation("matchTrip", fields: [tripMissionId], references: [id], onDelete: Cascade)
+  shipmentMission Mission @relation("matchShipment", fields: [shipmentMissionId], references: [id], onDelete: Cascade)
+
+  @@unique([tripMissionId, shipmentMissionId])
+  @@index([shipmentMissionId])
+}
+
+/// In-app notifications (email/SMS channels land in Phase 5; push in v2).
+model Notification {
+  id        String    @id @default(cuid())
+  accountId String
+  type      String // MATCH | DEAL | ADMIN | ... (admin-extensible catalog in Phase 5)
+  title     String?
+  body      String
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, readAt])
+  @@index([accountId, createdAt])
 }
 
 model Trip {

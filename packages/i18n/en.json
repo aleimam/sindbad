@@ -24,5 +24,36 @@
     "emptyMatches": "No matches yet — post a trip or a shipment to get started.",
     "emptyDeals": "No active deals yet."
   },
+  "auth": {
+    "login": "Log in",
+    "register": "Create account",
+    "logout": "Log out",
+    "identifier": "Email or phone",
+    "email": "Email",
+    "phone": "Phone number",
+    "contactHint": "Enter at least one — email or phone",
+    "password": "Password",
+    "haveAccount": "Already have an account?",
+    "noAccount": "New to Sindbad?",
+    "otpTitle": "Verify your contact",
+    "otpHint": "We sent you a 6-digit code",
+    "code": "6-digit code",
+    "verify": "Verify",
+    "devCodeHint": "Dev code (no SMS provider yet)",
+    "genericError": "Something went wrong — please try again"
+  },
+  "account": {
+    "title": "Account",
+    "yourAccounts": "Your accounts",
+    "type": "Type",
+    "displayName": "Display name",
+    "contact": "Contact",
+    "verified": "verified",
+    "notVerified": "not verified",
+    "pleaseLogin": "Log in to see your account."
+  },
+  "pages": {
+    "comingSoon": "This section is being built — it lights up in the coming phases."
+  },
   "system": { "apiStatus": "API", "online": "online", "offline": "offline" }
 }

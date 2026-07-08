@@ -8,6 +8,7 @@ import { AccountsService } from '../accounts/accounts.service';
 import { MissionsService } from './missions.service';
 import { MatchingService } from '../matching/matching.service';
 import { DealsService } from '../deals/deals.service';
+import { FlagsService } from '../deals/flags.service';
 
 @ApiTags('trips')
 @Controller('trips')
@@ -16,6 +17,7 @@ export class TripsController {
     private readonly missions: MissionsService,
     private readonly matching: MatchingService,
     private readonly deals: DealsService,
+    private readonly flagsService: FlagsService,
     private readonly accounts: AccountsService,
   ) {}
 
@@ -70,5 +72,16 @@ export class TripsController {
   async ready(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     const accountId = await this.accounts.getActingAccountId(user.userId);
     return this.deals.tripReady(id, accountId);
+  }
+
+  @Post(':id/customs')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Traveler: abnormal customs paid — flags all deals except traveler-pays-all-customs',
+  })
+  async customs(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    const accountId = await this.accounts.getActingAccountId(user.userId);
+    return this.flagsService.markTripCustoms(id, accountId);
   }
 }

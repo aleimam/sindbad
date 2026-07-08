@@ -91,3 +91,41 @@ export function canMarkReady(status: Status): boolean {
 export function canComplete(status: Status): boolean {
   return status === 'READY_FOR_PICKUP';
 }
+
+// ── Flags & the Resolution green flag (docs/02 §3) ──
+
+export interface FlagLike {
+  type: 'DELAYED' | 'CUSTOMS' | 'PARTIALLY';
+  active: boolean;
+}
+
+export interface ResolutionLike {
+  status: 'PROPOSED' | 'APPROVED';
+  proposedByAccountId: string;
+}
+
+/**
+ * Deals carrying an active PARTIALLY or CUSTOMS flag need an APPROVED resolution
+ * (the green flag) before they may be completed. DELAYED alone does not block.
+ */
+export function completionBlocked(
+  flags: FlagLike[],
+  resolution: ResolutionLike | null,
+): boolean {
+  const needsResolution = flags.some(
+    (f) => f.active && (f.type === 'PARTIALLY' || f.type === 'CUSTOMS'),
+  );
+  if (!needsResolution) return false;
+  return resolution?.status !== 'APPROVED';
+}
+
+/**
+ * Resolution approval: only the party who did NOT write the current text may approve.
+ * An edit by the other party moves proposership — the original proposer must re-approve.
+ */
+export function canApproveResolution(
+  resolution: ResolutionLike,
+  actingAccountId: string,
+): boolean {
+  return resolution.status === 'PROPOSED' && resolution.proposedByAccountId !== actingAccountId;
+}

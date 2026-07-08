@@ -16,11 +16,13 @@ import {
   canMarkArrived,
   canMarkReady,
   cancellation,
+  completionBlocked,
   nextStep,
   stepsComplete,
   type DealKind,
   type Party,
 } from './deal-state';
+import { FlagsService } from './flags.service';
 
 const DEAL_INCLUDE = {
   tripMission: {
@@ -33,6 +35,8 @@ const DEAL_INCLUDE = {
   shipmentMission: { include: { shipment: { include: { items: true } } } },
   travelerAccount: { select: { id: true, displayName: true } },
   shopperAccount: { select: { id: true, displayName: true } },
+  flags: { where: { active: true } },
+  resolution: true,
 } satisfies Prisma.DealInclude;
 
 @Injectable()
@@ -40,6 +44,7 @@ export class DealsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly matching: MatchingService,
+    private readonly flags: FlagsService,
   ) {}
 
   // ── Request & negotiation ─────────────────────────────────────────────────
@@ -213,6 +218,8 @@ export class DealsService {
         }),
       ),
     );
+    // Delayed flags auto-clear when the trip reaches the destination (docs/02 §3).
+    await this.flags.clearDelayedFlags(ready.map((d) => d.id));
     // Deals whose steps are not complete stay behind ("missed behind" flow lands Phase 2).
     return { arrived: ready.length, leftBehind: deals.length - ready.length };
   }
@@ -223,20 +230,20 @@ export class DealsService {
     const deals = await this.prisma.deal.findMany({
       where: { tripMissionId, status: 'ARRIVED_DESTINATION' },
     });
+    const eligible = deals.filter((d) => canMarkReady(d.status));
     await this.prisma.$transaction(
-      deals
-        .filter((d) => canMarkReady(d.status))
-        .map((d) =>
-          this.prisma.deal.update({
-            where: { id: d.id },
-            data: {
-              status: 'READY_FOR_PICKUP',
-              events: { create: { type: 'ready.pickup', data: {} } },
-            },
-          }),
-        ),
+      eligible.map((d) =>
+        this.prisma.deal.update({
+          where: { id: d.id },
+          data: {
+            status: 'READY_FOR_PICKUP',
+            events: { create: { type: 'ready.pickup', data: {} } },
+          },
+        }),
+      ),
     );
-    return { readyForPickup: deals.length };
+    await this.flags.clearDelayedFlags(eligible.map((d) => d.id));
+    return { readyForPickup: eligible.length };
   }
 
   /** Shopper confirms receipt — Phase 3 releases escrow here. */
@@ -245,6 +252,16 @@ export class DealsService {
     if (this.partyOf(deal, actingAccountId) !== 'SHOPPER')
       throw new ForbiddenException('Only the shopper can complete the deal');
     if (!canComplete(deal.status)) throw new BadRequestException('Deal is not ready for pickup');
+
+    // The green-flag rule: flagged deals need an approved resolution first (docs/02 §3).
+    const [activeFlags, resolution] = await Promise.all([
+      this.prisma.dealFlag.findMany({ where: { dealId, active: true } }),
+      this.prisma.dealResolution.findUnique({ where: { dealId } }),
+    ]);
+    if (completionBlocked(activeFlags, resolution))
+      throw new BadRequestException(
+        'This deal is flagged — both parties must approve a resolution before completing',
+      );
 
     const updated = await this.prisma.deal.update({
       where: { id: dealId },
@@ -262,16 +279,106 @@ export class DealsService {
     return this.serialize(updated, actingAccountId);
   }
 
+  /**
+   * Cancellation. Freely while unaccepted; the shopper may cancel later, but at
+   * Ordered-or-later it becomes a staff-approved request (docs/02 §3).
+   */
   async cancel(dealId: string, actingAccountId: string, reason?: string) {
     const deal = await this.getPartyDeal(dealId, actingAccountId);
     const party = this.partyOf(deal, actingAccountId);
     const rule = cancellation(deal.status, deal.ongoingStep, party);
     if (!rule.allowed) throw new ForbiddenException('You cannot cancel this deal');
-    if (rule.needsStaffApproval && !reason?.trim())
-      throw new BadRequestException('A cancellation reason is required at this stage');
 
-    // Phase 2 wires the staff-approval queue; the skeleton records the requirement.
-    const updated = await this.prisma.$transaction(async (tx) => {
+    if (rule.needsStaffApproval) {
+      if (!reason?.trim())
+        throw new BadRequestException('A cancellation reason is required at this stage');
+      const existing = await this.prisma.cancellationRequest.findUnique({ where: { dealId } });
+      if (existing?.status === 'PENDING')
+        throw new BadRequestException('A cancellation request is already pending');
+
+      await this.prisma.$transaction([
+        this.prisma.cancellationRequest.upsert({
+          where: { dealId },
+          create: { dealId, requestedByAccountId: actingAccountId, reason },
+          update: {
+            requestedByAccountId: actingAccountId,
+            reason,
+            status: 'PENDING',
+            decidedByUserId: null,
+            decidedAt: null,
+          },
+        }),
+        this.prisma.dealEvent.create({
+          data: {
+            dealId,
+            type: 'cancel.requested',
+            data: { accountId: actingAccountId, reason },
+          },
+        }),
+      ]);
+      return { pendingStaffApproval: true as const };
+    }
+
+    const updated = await this.executeCancellation(dealId, {
+      byAccountId: actingAccountId,
+      reason,
+    });
+    return this.serialize(updated, actingAccountId);
+  }
+
+  // ── Staff cancellation queue ──────────────────────────────────────────────
+
+  listPendingCancellations() {
+    return this.prisma.cancellationRequest.findMany({
+      where: { status: 'PENDING' },
+      include: { deal: { include: DEAL_INCLUDE } },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async decideCancellation(requestId: string, staffUserId: string, approve: boolean) {
+    const request = await this.prisma.cancellationRequest.findUnique({
+      where: { id: requestId },
+    });
+    if (!request) throw new NotFoundException('Cancellation request not found');
+    if (request.status !== 'PENDING') throw new BadRequestException('Already decided');
+
+    await this.prisma.cancellationRequest.update({
+      where: { id: requestId },
+      data: {
+        status: approve ? 'APPROVED' : 'REJECTED',
+        decidedByUserId: staffUserId,
+        decidedAt: new Date(),
+      },
+    });
+
+    if (approve) {
+      await this.executeCancellation(request.dealId, {
+        byAccountId: request.requestedByAccountId,
+        reason: request.reason,
+        staffUserId,
+      });
+    } else {
+      await this.prisma.dealEvent.create({
+        data: {
+          dealId: request.dealId,
+          type: 'cancel.rejected',
+          data: { staffUserId },
+        },
+      });
+    }
+    return { ok: true, approved: approve };
+  }
+
+  /** The actual cancellation: restore weight, mark CANCELLED, refund stub (Phase 3). */
+  private async executeCancellation(
+    dealId: string,
+    meta: { byAccountId: string; reason?: string; staffUserId?: string },
+  ) {
+    const deal = await this.prisma.deal.findUnique({ where: { id: dealId } });
+    if (!deal) throw new NotFoundException('Deal not found');
+
+    return this.prisma.$transaction(async (tx) => {
       // Restore depleted weight if the deal had been accepted on a one-time trip.
       if (deal.status !== 'REQUESTED' && deal.status !== 'NEGOTIATING') {
         const mission = await tx.mission.findUnique({ where: { id: deal.tripMissionId } });
@@ -290,22 +397,25 @@ export class DealsService {
         where: { id: dealId },
         data: {
           status: 'CANCELLED',
-          cancelReason: reason,
+          cancelReason: meta.reason,
           events: {
-            create: {
-              type: 'cancelled',
-              data: {
-                accountId: actingAccountId,
-                reason: reason ?? null,
-                staffApprovalRequired: rule.needsStaffApproval, // queue lands Phase 2
+            create: [
+              {
+                type: 'cancelled',
+                data: {
+                  accountId: meta.byAccountId,
+                  reason: meta.reason ?? null,
+                  staffUserId: meta.staffUserId ?? null,
+                },
               },
-            },
+              // Phase 3 replaces this with the real escrow refund.
+              { type: 'escrow.stub', data: { note: 'refund lands in Phase 3 (money)' } },
+            ],
           },
         },
         include: DEAL_INCLUDE,
       });
     });
-    return this.serialize(updated, actingAccountId);
   }
 
   // ── Queries ───────────────────────────────────────────────────────────────

@@ -166,3 +166,13 @@ export const cancelDealSchema = z.object({
   reason: z.string().max(1000).optional(),
 });
 export type CancelDealInput = z.infer<typeof cancelDealSchema>;
+
+export const partiallyFlagSchema = z.object({
+  problem: z.enum(['LOST_DAMAGED', 'DELAYED']),
+});
+export type PartiallyFlagInput = z.infer<typeof partiallyFlagSchema>;
+
+export const resolutionSchema = z.object({
+  text: z.string().min(3).max(2000),
+});
+export type ResolutionInput = z.infer<typeof resolutionSchema>;

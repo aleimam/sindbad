@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   canAccept,
+  canApproveResolution,
   canChangeFee,
   canComplete,
   canMarkArrived,
   canMarkReady,
   cancellation,
+  completionBlocked,
   nextStep,
   stepsComplete,
 } from './deal-state';
@@ -85,6 +87,37 @@ describe('cancellation rules', () => {
   it('nobody cancels a completed or cancelled deal', () => {
     expect(cancellation('COMPLETED', null, 'SHOPPER').allowed).toBe(false);
     expect(cancellation('CANCELLED', null, 'SHOPPER').allowed).toBe(false);
+  });
+});
+
+describe('completionBlocked — the green-flag rule', () => {
+  const res = (status: 'PROPOSED' | 'APPROVED') => ({ status, proposedByAccountId: 'a1' });
+
+  it('no flags → never blocked', () => {
+    expect(completionBlocked([], null)).toBe(false);
+    expect(completionBlocked([{ type: 'DELAYED', active: true }], null)).toBe(false);
+  });
+
+  it('active PARTIALLY or CUSTOMS blocks without an approved resolution', () => {
+    expect(completionBlocked([{ type: 'PARTIALLY', active: true }], null)).toBe(true);
+    expect(completionBlocked([{ type: 'CUSTOMS', active: true }], res('PROPOSED'))).toBe(true);
+  });
+
+  it('an approved resolution unblocks', () => {
+    expect(completionBlocked([{ type: 'PARTIALLY', active: true }], res('APPROVED'))).toBe(false);
+  });
+
+  it('cleared flags do not block', () => {
+    expect(completionBlocked([{ type: 'CUSTOMS', active: false }], null)).toBe(false);
+  });
+});
+
+describe('canApproveResolution — dual approval', () => {
+  it('only the non-proposer approves, and only while proposed', () => {
+    const r = { status: 'PROPOSED' as const, proposedByAccountId: 'a1' };
+    expect(canApproveResolution(r, 'a2')).toBe(true);
+    expect(canApproveResolution(r, 'a1')).toBe(false);
+    expect(canApproveResolution({ ...r, status: 'APPROVED' }, 'a2')).toBe(false);
   });
 });
 

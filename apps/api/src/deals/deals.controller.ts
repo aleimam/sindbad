@@ -3,16 +3,21 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   cancelDealSchema,
   changeFeeSchema,
+  partiallyFlagSchema,
   requestDealSchema,
+  resolutionSchema,
   type CancelDealInput,
   type ChangeFeeInput,
+  type PartiallyFlagInput,
   type RequestDealInput,
+  type ResolutionInput,
 } from '@sindbad/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccountsService } from '../accounts/accounts.service';
 import { DealsService } from './deals.service';
+import { FlagsService } from './flags.service';
 
 @ApiTags('deals')
 @ApiBearerAuth()
@@ -21,6 +26,7 @@ import { DealsService } from './deals.service';
 export class DealsController {
   constructor(
     private readonly deals: DealsService,
+    private readonly flags: FlagsService,
     private readonly accounts: AccountsService,
   ) {}
 
@@ -86,7 +92,7 @@ export class DealsController {
 
   @Post(':id/cancel')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Cancel per the cancellation rules' })
+  @ApiOperation({ summary: 'Cancel — at Ordered+ becomes a staff-approved request' })
   async cancel(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
@@ -94,5 +100,37 @@ export class DealsController {
   ) {
     const accountId = await this.accounts.getActingAccountId(user.userId);
     return this.deals.cancel(id, accountId, body.reason);
+  }
+
+  @Post(':id/flags/partially')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Traveler: some items are off-track (lost/damaged or delayed)' })
+  async markPartially(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(partiallyFlagSchema)) body: PartiallyFlagInput,
+  ) {
+    const accountId = await this.accounts.getActingAccountId(user.userId);
+    return this.flags.markPartially(id, accountId, body.problem);
+  }
+
+  @Post(':id/resolution')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Propose or edit the resolution (dual approval)' })
+  async proposeResolution(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(resolutionSchema)) body: ResolutionInput,
+  ) {
+    const accountId = await this.accounts.getActingAccountId(user.userId);
+    return this.flags.proposeResolution(id, accountId, body.text);
+  }
+
+  @Post(':id/resolution/approve')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Approve the current resolution text → green flag' })
+  async approveResolution(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    const accountId = await this.accounts.getActingAccountId(user.userId);
+    return this.flags.approveResolution(id, accountId);
   }
 }

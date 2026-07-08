@@ -359,6 +359,7 @@ model Deal {
   ongoingStep          OngoingStep?
   paymentMethod        PaymentMethod @default(CASH)
   feeUsd               Int // agreed fee, minor units (escrow lands Phase 3)
+  travelerPaysAllCustoms Boolean     @default(false) // exempts the deal from trip-level CUSTOMS flags
   cancelReason         String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
@@ -368,11 +369,82 @@ model Deal {
   travelerAccount Account @relation("travelerDeals", fields: [travelerAccountId], references: [id])
   shopperAccount  Account @relation("shopperDeals", fields: [shopperAccountId], references: [id])
 
-  events DealEvent[]
+  events              DealEvent[]
+  flags               DealFlag[]
+  resolution          DealResolution?
+  cancellationRequest CancellationRequest?
 
   @@unique([tripMissionId, shipmentMissionId])
   @@index([travelerAccountId])
   @@index([shopperAccountId])
+  @@index([status])
+}
+
+// ── Flags, resolutions & staff cancellation queue (docs/02 §3) ──
+
+enum DealFlagType {
+  DELAYED
+  CUSTOMS
+  PARTIALLY
+}
+
+enum PartialProblem {
+  LOST_DAMAGED
+  DELAYED
+}
+
+model DealFlag {
+  id        String         @id @default(cuid())
+  dealId    String
+  type      DealFlagType
+  problem   PartialProblem? // set for PARTIALLY
+  active    Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  clearedAt DateTime?
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, type])
+}
+
+enum ResolutionStatus {
+  PROPOSED
+  APPROVED
+}
+
+/// "How was the deal completed?" — dual-approval; required before COMPLETED when
+/// the deal carries a PARTIALLY or CUSTOMS flag (the green flag).
+model DealResolution {
+  id                  String           @id @default(cuid())
+  dealId              String           @unique
+  text                String
+  proposedByAccountId String // an edit moves proposership — the other party must approve
+  status              ResolutionStatus @default(PROPOSED)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+}
+
+enum CancellationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Shopper cancellations at Ordered-or-later require staff approval before execution.
+model CancellationRequest {
+  id                   String             @id @default(cuid())
+  dealId               String             @unique
+  requestedByAccountId String
+  reason               String
+  status               CancellationStatus @default(PENDING)
+  decidedByUserId      String?
+  decidedAt            DateTime?
+  createdAt            DateTime           @default(now())
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
   @@index([status])
 }
 

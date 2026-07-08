@@ -80,7 +80,10 @@ model Account {
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
 
-  members AccountMember[]
+  members       AccountMember[]
+  missions      Mission[]
+  travelerDeals Deal[]          @relation("travelerDeals")
+  shopperDeals  Deal[]          @relation("shopperDeals")
 }
 
 /// User ↔ Account link. Personal = one OWNER; Commercial = OWNER + MANAGERs (full permissions in v1).
@@ -189,4 +192,200 @@ model StaffPermission {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, permission])
+}
+
+// ─────────────────────────── Catalogs ───────────────────────────
+
+model Country {
+  id         String   @id @default(cuid())
+  code       String   @unique // ISO 3166-1 alpha-2
+  nameEn     String
+  nameAr     String
+  priceParam Float    @default(1) // fee-engine country component (C = origin × destination)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  originMissions      Mission[] @relation("missionOrigin")
+  destinationMissions Mission[] @relation("missionDestination")
+}
+
+model Category {
+  id             String   @id @default(cuid())
+  nameEn         String
+  nameAr         String
+  groupEn        String? // Category Group for list views
+  groupAr        String?
+  typeMultiplier Float    @default(1) // fee-engine T
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  items        Item[]
+  tripsAllowed TripCategory[]
+}
+
+// ─────────────────────────── Missions ───────────────────────────
+// Mission is the supertype (docs/02 decision #2); Trip / Shipment are 1:1 extensions.
+
+enum MissionKind {
+  TRIP
+  SHIPMENT
+}
+
+enum MissionStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  REJECTED
+  EXPIRED
+  CLOSED
+}
+
+enum ShipmentKind {
+  BOX
+  BASKET
+}
+
+model Mission {
+  id                   String        @id @default(cuid())
+  accountId            String
+  kind                 MissionKind
+  status               MissionStatus @default(ACTIVE)
+  isCyclic             Boolean       @default(false) // commercial only (enforced in service)
+  originCountryId      String
+  destinationCountryId String
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  account     Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  origin      Country @relation("missionOrigin", fields: [originCountryId], references: [id])
+  destination Country @relation("missionDestination", fields: [destinationCountryId], references: [id])
+
+  trip          Trip?
+  shipment      Shipment?
+  dealsAsTrip     Deal[] @relation("dealTrip")
+  dealsAsShipment Deal[] @relation("dealShipment")
+
+  @@index([kind, status, originCountryId, destinationCountryId])
+  @@index([accountId])
+}
+
+model Trip {
+  missionId         String    @id
+  receivingStart    DateTime? // optional → open (shoppers can ship now)
+  receivingEnd      DateTime
+  tripDate          DateTime // PRIVATE — hidden from other users
+  deliveryDate      DateTime
+  deliveryLocation  String // destination city/neighbourhood — public on trip detail
+  receivingAddress  String // PRIVATE — revealed to the shopper once a deal is dual-agreed
+  travelerCount     Int       @default(1)
+  availableWeightKg Float // depletes for one-time trips; NOT for cyclic (service logic)
+  feeUsd            Int? // asking fee, minor units
+  notes             String?
+
+  mission           Mission        @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  allowedCategories TripCategory[]
+}
+
+model TripCategory {
+  missionId  String
+  categoryId String
+
+  trip     Trip     @relation(fields: [missionId], references: [missionId], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([missionId, categoryId])
+}
+
+model Shipment {
+  missionId String       @id
+  type      ShipmentKind
+  feeUsd    Int? // asking fee, minor units
+  notes     String?
+
+  mission Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  items   Item[]
+}
+
+model Item {
+  id                 String  @id @default(cuid())
+  shipmentId         String
+  details            String
+  url                String?
+  volumetricWeightKg Float // single collected figure (docs decision 2026-06-25)
+  count              Int     @default(1)
+  categoryId         String
+  declaredValueUsd   Int? // minor units, USD (Box)
+  notes              String?
+
+  shipment Shipment @relation(fields: [shipmentId], references: [missionId], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@index([shipmentId])
+}
+
+// ─────────────────────────── Deals ───────────────────────────
+
+enum DealStatus {
+  REQUESTED
+  NEGOTIATING
+  ONGOING
+  ARRIVED_DESTINATION
+  READY_FOR_PICKUP
+  COMPLETED
+  CANCELLED
+}
+
+enum OngoingStep {
+  ORDERED
+  SHIPPED
+  DELIVERED_TO_TRAVELER
+  RECEIVED_BY_TRAVELER
+}
+
+enum PaymentMethod {
+  CASH
+  IN_APP
+}
+
+model Deal {
+  id                   String        @id @default(cuid())
+  tripMissionId        String
+  shipmentMissionId    String
+  travelerAccountId    String
+  shopperAccountId     String
+  requestedByAccountId String
+  lastOfferByAccountId String // accept must come from the other party
+  status               DealStatus    @default(REQUESTED)
+  ongoingStep          OngoingStep?
+  paymentMethod        PaymentMethod @default(CASH)
+  feeUsd               Int // agreed fee, minor units (escrow lands Phase 3)
+  cancelReason         String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  tripMission     Mission @relation("dealTrip", fields: [tripMissionId], references: [id])
+  shipmentMission Mission @relation("dealShipment", fields: [shipmentMissionId], references: [id])
+  travelerAccount Account @relation("travelerDeals", fields: [travelerAccountId], references: [id])
+  shopperAccount  Account @relation("shopperDeals", fields: [shopperAccountId], references: [id])
+
+  events DealEvent[]
+
+  @@unique([tripMissionId, shipmentMissionId])
+  @@index([travelerAccountId])
+  @@index([shopperAccountId])
+  @@index([status])
+}
+
+/// Append-only history of everything that happens on a deal (negotiation log included).
+model DealEvent {
+  id          String   @id @default(cuid())
+  dealId      String
+  actorUserId String?
+  type        String
+  data        Json?
+  createdAt   DateTime @default(now())
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
 }

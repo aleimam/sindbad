@@ -26,6 +26,27 @@ export const DealStatus = {
 } as const;
 export type DealStatus = (typeof DealStatus)[keyof typeof DealStatus];
 
+export const MissionStatus = {
+  Draft: 'DRAFT',
+  PendingApproval: 'PENDING_APPROVAL',
+  Active: 'ACTIVE',
+  Rejected: 'REJECTED',
+  Expired: 'EXPIRED',
+  Closed: 'CLOSED',
+} as const;
+export type MissionStatus = (typeof MissionStatus)[keyof typeof MissionStatus];
+
+export const OngoingStep = {
+  Ordered: 'ORDERED',
+  Shipped: 'SHIPPED',
+  DeliveredToTraveler: 'DELIVERED_TO_TRAVELER',
+  ReceivedByTraveler: 'RECEIVED_BY_TRAVELER',
+} as const;
+export type OngoingStep = (typeof OngoingStep)[keyof typeof OngoingStep];
+
+export const PaymentMethod = { Cash: 'CASH', InApp: 'IN_APP' } as const;
+export type PaymentMethod = (typeof PaymentMethod)[keyof typeof PaymentMethod];
+
 export const Currency = { USD: 'USD', EGP: 'EGP' } as const;
 export type Currency = (typeof Currency)[keyof typeof Currency];
 

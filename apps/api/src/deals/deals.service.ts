@@ -1,0 +1,376 @@
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import type { RequestDealInput } from '@sindbad/shared';
+import type { Deal, Prisma } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { MatchingService } from '../matching/matching.service';
+import { shipmentTotalWeight } from '../matching/matching';
+import {
+  canAccept,
+  canChangeFee,
+  canComplete,
+  canMarkArrived,
+  canMarkReady,
+  cancellation,
+  nextStep,
+  stepsComplete,
+  type DealKind,
+  type Party,
+} from './deal-state';
+
+const DEAL_INCLUDE = {
+  tripMission: {
+    include: {
+      trip: true,
+      origin: { select: { id: true, code: true, nameEn: true, nameAr: true } },
+      destination: { select: { id: true, code: true, nameEn: true, nameAr: true } },
+    },
+  },
+  shipmentMission: { include: { shipment: { include: { items: true } } } },
+  travelerAccount: { select: { id: true, displayName: true } },
+  shopperAccount: { select: { id: true, displayName: true } },
+} satisfies Prisma.DealInclude;
+
+@Injectable()
+export class DealsService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly matching: MatchingService,
+  ) {}
+
+  // ── Request & negotiation ─────────────────────────────────────────────────
+
+  async request(actingAccountId: string, input: RequestDealInput) {
+    const [tripMission, shipmentMission] = await Promise.all([
+      this.prisma.mission.findUnique({
+        where: { id: input.tripMissionId },
+        include: { trip: true },
+      }),
+      this.prisma.mission.findUnique({
+        where: { id: input.shipmentMissionId },
+        include: { shipment: { include: { items: true } } },
+      }),
+    ]);
+    if (!tripMission?.trip || tripMission.kind !== 'TRIP')
+      throw new NotFoundException('Trip not found');
+    if (!shipmentMission?.shipment || shipmentMission.kind !== 'SHIPMENT')
+      throw new NotFoundException('Shipment not found');
+    if (tripMission.status !== 'ACTIVE' || shipmentMission.status !== 'ACTIVE')
+      throw new BadRequestException('Both missions must be active');
+
+    const travelerAccountId = tripMission.accountId;
+    const shopperAccountId = shipmentMission.accountId;
+    if (travelerAccountId === shopperAccountId)
+      throw new BadRequestException('Cannot deal with yourself');
+    if (actingAccountId !== travelerAccountId && actingAccountId !== shopperAccountId)
+      throw new ForbiddenException('You must own the trip or the shipment');
+
+    const match = await this.matching.pairMatches(input.tripMissionId, input.shipmentMissionId);
+    if (!match.match) throw new BadRequestException('Trip and shipment do not match');
+
+    const feeUsd =
+      input.feeUsd ?? shipmentMission.shipment.feeUsd ?? tripMission.trip.feeUsd ?? 0;
+
+    const deal = await this.prisma.deal.create({
+      data: {
+        tripMissionId: tripMission.id,
+        shipmentMissionId: shipmentMission.id,
+        travelerAccountId,
+        shopperAccountId,
+        requestedByAccountId: actingAccountId,
+        lastOfferByAccountId: actingAccountId,
+        paymentMethod: input.paymentMethod,
+        feeUsd,
+        events: {
+          create: {
+            type: 'requested',
+            data: { accountId: actingAccountId, feeUsd, askFlagged: match.askFlagged },
+          },
+        },
+      },
+      include: DEAL_INCLUDE,
+    });
+    return this.serialize(deal, actingAccountId);
+  }
+
+  async changeFee(dealId: string, actingAccountId: string, feeUsd: number) {
+    const deal = await this.getPartyDeal(dealId, actingAccountId);
+    if (!canChangeFee(deal.status)) throw new BadRequestException('Negotiation is closed');
+
+    const updated = await this.prisma.deal.update({
+      where: { id: dealId },
+      data: {
+        status: 'NEGOTIATING',
+        feeUsd,
+        lastOfferByAccountId: actingAccountId,
+        events: { create: { type: 'fee.changed', data: { accountId: actingAccountId, feeUsd } } },
+      },
+      include: DEAL_INCLUDE,
+    });
+    return this.serialize(updated, actingAccountId);
+  }
+
+  /**
+   * Acceptance by the party who did NOT make the last offer → the deal is agreed.
+   * Money hook (Phase 3): IN_APP deals escrow here. Weight depletes for one-time trips.
+   */
+  async accept(dealId: string, actingAccountId: string) {
+    const deal = await this.getPartyDeal(dealId, actingAccountId);
+    if (!canAccept(deal.status)) throw new BadRequestException('Deal is not open for acceptance');
+    if (deal.lastOfferByAccountId === actingAccountId)
+      throw new ForbiddenException('The other party must accept the current offer');
+
+    const tripMission = await this.prisma.mission.findUnique({
+      where: { id: deal.tripMissionId },
+      include: { trip: true, shipmentMission: false } as never,
+    });
+    const shipment = await this.prisma.shipment.findUnique({
+      where: { missionId: deal.shipmentMissionId },
+      include: { items: true },
+    });
+    const weight = shipmentTotalWeight(shipment?.items ?? []);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Deplete available weight for one-time trips (cyclic trips keep full capacity).
+      if (tripMission && !tripMission.isCyclic) {
+        const trip = await tx.trip.findUnique({ where: { missionId: deal.tripMissionId } });
+        if (!trip) throw new NotFoundException('Trip not found');
+        if (trip.availableWeightKg < weight)
+          throw new BadRequestException('Trip no longer has enough available weight');
+        await tx.trip.update({
+          where: { missionId: deal.tripMissionId },
+          data: { availableWeightKg: { decrement: weight } },
+        });
+      }
+      return tx.deal.update({
+        where: { id: dealId },
+        data: {
+          status: 'ONGOING',
+          ongoingStep: null,
+          events: {
+            create: [
+              { type: 'accepted', data: { accountId: actingAccountId, feeUsd: deal.feeUsd } },
+              // Phase 3 replaces this stub with the real escrow transaction.
+              { type: 'escrow.stub', data: { note: 'IN_APP escrow lands in Phase 3 (money)' } },
+            ],
+          },
+        },
+        include: DEAL_INCLUDE,
+      });
+    });
+    return this.serialize(updated, actingAccountId);
+  }
+
+  // ── Progress ──────────────────────────────────────────────────────────────
+
+  async advance(dealId: string, actingAccountId: string) {
+    const deal = await this.getPartyDeal(dealId, actingAccountId);
+    if (deal.status !== 'ONGOING') throw new BadRequestException('Deal is not in progress');
+
+    const kind = this.dealKind(deal);
+    const next = nextStep(kind, deal.ongoingStep);
+    if (!next) throw new BadRequestException('All steps are already complete');
+
+    const party = this.partyOf(deal, actingAccountId);
+    if (party !== next.actor)
+      throw new ForbiddenException(`Only the ${next.actor.toLowerCase()} can mark ${next.step}`);
+
+    const updated = await this.prisma.deal.update({
+      where: { id: dealId },
+      data: {
+        ongoingStep: next.step,
+        events: { create: { type: 'step.advanced', data: { step: next.step, by: party } } },
+      },
+      include: DEAL_INCLUDE,
+    });
+    return this.serialize(updated, actingAccountId);
+  }
+
+  /** Traveler marks the whole trip arrived → deals with completed steps advance. */
+  async tripArrived(tripMissionId: string, actingAccountId: string) {
+    await this.assertTripOwner(tripMissionId, actingAccountId);
+    const deals = await this.prisma.deal.findMany({
+      where: { tripMissionId, status: 'ONGOING' },
+      include: { shipmentMission: { include: { shipment: true } } },
+    });
+    const ready = deals.filter(
+      (d) =>
+        canMarkArrived(d.status) &&
+        stepsComplete(this.dealKind(d), d.ongoingStep),
+    );
+    await this.prisma.$transaction(
+      ready.map((d) =>
+        this.prisma.deal.update({
+          where: { id: d.id },
+          data: {
+            status: 'ARRIVED_DESTINATION',
+            events: { create: { type: 'trip.arrived', data: {} } },
+          },
+        }),
+      ),
+    );
+    // Deals whose steps are not complete stay behind ("missed behind" flow lands Phase 2).
+    return { arrived: ready.length, leftBehind: deals.length - ready.length };
+  }
+
+  /** Bulk Ready-for-Pickup — excludes flagged/missed deals per the approved rule. */
+  async tripReady(tripMissionId: string, actingAccountId: string) {
+    await this.assertTripOwner(tripMissionId, actingAccountId);
+    const deals = await this.prisma.deal.findMany({
+      where: { tripMissionId, status: 'ARRIVED_DESTINATION' },
+    });
+    await this.prisma.$transaction(
+      deals
+        .filter((d) => canMarkReady(d.status))
+        .map((d) =>
+          this.prisma.deal.update({
+            where: { id: d.id },
+            data: {
+              status: 'READY_FOR_PICKUP',
+              events: { create: { type: 'ready.pickup', data: {} } },
+            },
+          }),
+        ),
+    );
+    return { readyForPickup: deals.length };
+  }
+
+  /** Shopper confirms receipt — Phase 3 releases escrow here. */
+  async complete(dealId: string, actingAccountId: string) {
+    const deal = await this.getPartyDeal(dealId, actingAccountId);
+    if (this.partyOf(deal, actingAccountId) !== 'SHOPPER')
+      throw new ForbiddenException('Only the shopper can complete the deal');
+    if (!canComplete(deal.status)) throw new BadRequestException('Deal is not ready for pickup');
+
+    const updated = await this.prisma.deal.update({
+      where: { id: dealId },
+      data: {
+        status: 'COMPLETED',
+        events: {
+          create: [
+            { type: 'completed', data: { accountId: actingAccountId } },
+            { type: 'escrow.stub', data: { note: 'escrow release lands in Phase 3 (money)' } },
+          ],
+        },
+      },
+      include: DEAL_INCLUDE,
+    });
+    return this.serialize(updated, actingAccountId);
+  }
+
+  async cancel(dealId: string, actingAccountId: string, reason?: string) {
+    const deal = await this.getPartyDeal(dealId, actingAccountId);
+    const party = this.partyOf(deal, actingAccountId);
+    const rule = cancellation(deal.status, deal.ongoingStep, party);
+    if (!rule.allowed) throw new ForbiddenException('You cannot cancel this deal');
+    if (rule.needsStaffApproval && !reason?.trim())
+      throw new BadRequestException('A cancellation reason is required at this stage');
+
+    // Phase 2 wires the staff-approval queue; the skeleton records the requirement.
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Restore depleted weight if the deal had been accepted on a one-time trip.
+      if (deal.status !== 'REQUESTED' && deal.status !== 'NEGOTIATING') {
+        const mission = await tx.mission.findUnique({ where: { id: deal.tripMissionId } });
+        if (mission && !mission.isCyclic) {
+          const shipment = await tx.shipment.findUnique({
+            where: { missionId: deal.shipmentMissionId },
+            include: { items: true },
+          });
+          await tx.trip.update({
+            where: { missionId: deal.tripMissionId },
+            data: { availableWeightKg: { increment: shipmentTotalWeight(shipment?.items ?? []) } },
+          });
+        }
+      }
+      return tx.deal.update({
+        where: { id: dealId },
+        data: {
+          status: 'CANCELLED',
+          cancelReason: reason,
+          events: {
+            create: {
+              type: 'cancelled',
+              data: {
+                accountId: actingAccountId,
+                reason: reason ?? null,
+                staffApprovalRequired: rule.needsStaffApproval, // queue lands Phase 2
+              },
+            },
+          },
+        },
+        include: DEAL_INCLUDE,
+      });
+    });
+    return this.serialize(updated, actingAccountId);
+  }
+
+  // ── Queries ───────────────────────────────────────────────────────────────
+
+  async mine(accountId: string) {
+    const deals = await this.prisma.deal.findMany({
+      where: { OR: [{ travelerAccountId: accountId }, { shopperAccountId: accountId }] },
+      include: DEAL_INCLUDE,
+      orderBy: { updatedAt: 'desc' },
+    });
+    return deals.map((d) => this.serialize(d, accountId));
+  }
+
+  async byId(dealId: string, accountId: string) {
+    const deal = await this.getPartyDeal(dealId, accountId, true);
+    return this.serialize(deal, accountId);
+  }
+
+  // ── Internals ─────────────────────────────────────────────────────────────
+
+  private async getPartyDeal(dealId: string, accountId: string, withEvents = false) {
+    const deal = await this.prisma.deal.findUnique({
+      where: { id: dealId },
+      include: withEvents
+        ? { ...DEAL_INCLUDE, events: { orderBy: { createdAt: 'asc' as const } } }
+        : DEAL_INCLUDE,
+    });
+    if (!deal) throw new NotFoundException('Deal not found');
+    if (deal.travelerAccountId !== accountId && deal.shopperAccountId !== accountId)
+      throw new ForbiddenException('Not your deal');
+    return deal;
+  }
+
+  private partyOf(deal: Deal, accountId: string): Party {
+    return deal.travelerAccountId === accountId ? 'TRAVELER' : 'SHOPPER';
+  }
+
+  private dealKind(deal: {
+    shipmentMission?: { shipment?: { type: 'BOX' | 'BASKET' } | null } | null;
+  }): DealKind {
+    return deal.shipmentMission?.shipment?.type ?? 'BOX';
+  }
+
+  private async assertTripOwner(tripMissionId: string, accountId: string) {
+    const mission = await this.prisma.mission.findUnique({ where: { id: tripMissionId } });
+    if (!mission || mission.kind !== 'TRIP') throw new NotFoundException('Trip not found');
+    if (mission.accountId !== accountId) throw new ForbiddenException('Not your trip');
+  }
+
+  /**
+   * Privacy rule (docs/03): the trip's full receiving address is revealed to the
+   * shopper only once the deal is dual-agreed; the private tripDate never leaves.
+   */
+  private serialize(
+    deal: Deal & { tripMission?: { trip?: Record<string, unknown> | null } | null },
+    viewerAccountId: string,
+  ) {
+    const agreed = !['REQUESTED', 'NEGOTIATING', 'CANCELLED'].includes(deal.status);
+    const isTraveler = deal.travelerAccountId === viewerAccountId;
+    const trip = deal.tripMission?.trip;
+    if (trip) {
+      const { tripDate: _priv, receivingAddress, ...rest } = trip;
+      deal.tripMission!.trip =
+        isTraveler || agreed ? { ...rest, receivingAddress } : rest;
+    }
+    return deal;
+  }
+}

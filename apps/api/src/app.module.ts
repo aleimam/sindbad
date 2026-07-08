@@ -5,6 +5,11 @@ import { PrismaModule } from './prisma/prisma.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { AuthModule } from './auth/auth.module';
 import { AdminModule } from './admin/admin.module';
+import { AccountsModule } from './accounts/accounts.module';
+import { CatalogModule } from './catalog/catalog.module';
+import { MatchingModule } from './matching/matching.module';
+import { MissionsModule } from './missions/missions.module';
+import { DealsModule } from './deals/deals.module';
 import { HealthModule } from './health/health.module';
 import { MetaModule } from './meta/meta.module';
 
@@ -15,6 +20,11 @@ import { MetaModule } from './meta/meta.module';
     MessagingModule,
     AuthModule,
     AdminModule,
+    AccountsModule,
+    CatalogModule,
+    MatchingModule,
+    MissionsModule,
+    DealsModule,
     HealthModule,
     MetaModule,
   ],

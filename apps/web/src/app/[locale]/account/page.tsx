@@ -77,6 +77,18 @@ export default function AccountPage() {
         </Button>
       </Link>
 
+      <Link href="/account/verifications" className="block">
+        <Button variant="ghost" className="w-full">
+          {t('verif.title')}
+        </Button>
+      </Link>
+
+      <Link href="/account/credibility" className="block">
+        <Button variant="ghost" className="w-full">
+          {t('cred.title')}
+        </Button>
+      </Link>
+
       <Link href="/account/preferences" className="block">
         <Button variant="ghost" className="w-full">
           {t('prefs.title')}

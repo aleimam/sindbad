@@ -4,10 +4,12 @@ import { use, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { ArrowRight, Check, Clock, Lock, Plane } from 'lucide-react';
 import { Avatar, Button, Card, Input, StatusPill, cn, dealStatusVariant } from '@sindbad/ui';
+import { Link } from '@/i18n/navigation';
 import { api, ApiError } from '@/lib/api';
 import { fmtUsd, usdToCents } from '@/lib/format';
 import { localizedName, useApiGet } from '@/lib/use-api';
 import { useMe } from '@/lib/use-me';
+import { DealReviews } from '@/components/deal-reviews';
 import type { Deal } from '@/lib/types';
 
 const BOX_STEPS = ['ORDERED', 'SHIPPED', 'DELIVERED_TO_TRAVELER', 'RECEIVED_BY_TRAVELER'] as const;
@@ -85,7 +87,7 @@ export default function DealDetailPage({ params }: { params: Promise<{ id: strin
         </div>
 
         <div className="flex items-center justify-between border-y border-slate-border py-3 dark:border-slate-dark">
-          <div className="flex items-center gap-2">
+          <Link href={`/users/${deal.travelerAccountId}`} className="flex items-center gap-2">
             <Avatar name={deal.travelerAccount.displayName} className="h-7 w-7 text-[10px]" />
             <div className="text-xs">
               <div className="font-medium">
@@ -94,8 +96,8 @@ export default function DealDetailPage({ params }: { params: Promise<{ id: strin
               </div>
               <div className="text-slate">{t('deal.traveler')}</div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
+          </Link>
+          <Link href={`/users/${deal.shopperAccountId}`} className="flex items-center gap-2">
             <div className="text-end text-xs">
               <div className="font-medium">
                 {deal.shopperAccount.displayName}
@@ -104,7 +106,7 @@ export default function DealDetailPage({ params }: { params: Promise<{ id: strin
               <div className="text-slate">{t('deal.shopper')}</div>
             </div>
             <Avatar name={deal.shopperAccount.displayName} className="h-7 w-7 bg-slate text-[10px]" />
-          </div>
+          </Link>
         </div>
 
         <div className="flex items-center justify-between">
@@ -193,6 +195,10 @@ export default function DealDetailPage({ params }: { params: Promise<{ id: strin
             </div>
           ))}
         </Card>
+      ) : null}
+
+      {deal.status === 'COMPLETED' && deal.completedAt && myAccountId ? (
+        <DealReviews dealId={deal.id} completedAt={deal.completedAt} myAccountId={myAccountId} />
       ) : null}
 
       {error ? <p className="text-xs text-error">{error}</p> : null}

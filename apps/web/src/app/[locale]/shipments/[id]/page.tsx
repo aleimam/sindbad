@@ -4,7 +4,7 @@ import { use, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Package, ShoppingBasket } from 'lucide-react';
 import { Avatar, Button, Card, CategoryChip, StatusPill } from '@sindbad/ui';
-import { useRouter } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { api, ApiError, mediaUrl } from '@/lib/api';
 import { fmtUsd, usdToCents } from '@/lib/format';
 import { localizedName, useApiGet } from '@/lib/use-api';
@@ -74,10 +74,12 @@ export default function ShipmentDetailPage({ params }: { params: Promise<{ id: s
         </div>
       </Card>
 
-      <Card className="flex items-center gap-3 p-4">
-        <Avatar name={m.account.displayName} />
-        <div className="text-sm font-semibold">{m.account.displayName}</div>
-      </Card>
+      <Link href={`/users/${m.account.id}`} className="block">
+        <Card className="flex items-center gap-3 p-4 transition-colors hover:border-royal">
+          <Avatar name={m.account.displayName} />
+          <div className="text-sm font-semibold">{m.account.displayName}</div>
+        </Card>
+      </Link>
 
       <div className="space-y-2">
         <h2 className="text-sm font-semibold">

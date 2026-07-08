@@ -230,6 +230,58 @@
       "FX_CONVERT": "Currency conversion"
     }
   },
+  "verif": {
+    "title": "Verification",
+    "hint": "Verify details about yourself to earn credibility. Fees are charged from your wallet and are non-refundable.",
+    "status": {
+      "NEW": "New",
+      "STUDYING": "Studying",
+      "VERIFIED": "Verified",
+      "NEEDS_REVIEW": "Needs review",
+      "REJECTED": "Rejected"
+    },
+    "free": "Free",
+    "points": "credibility",
+    "days": "days",
+    "socialCodeHint": "Place this code in your profile bio, then wait for our review",
+    "uploadHint": "Attach documents / your live photo",
+    "detailsPlaceholder": "Details (e.g. the number or link to verify)",
+    "request": "Verify this",
+    "confirmRequest": "Confirm & pay",
+    "cancel": "Cancel"
+  },
+  "cred": {
+    "title": "Credibility score",
+    "hint": "Recomputed weekly. Recent activity counts more; verifications hold their value.",
+    "tier": { "NEW": "New", "BRONZE": "Bronze", "SILVER": "Silver", "GOLD": "Gold", "PLATINUM": "Platinum" },
+    "kind": {
+      "VERIFICATION": "Verifications",
+      "TRIP": "Trips",
+      "SHIPMENT": "Shipments",
+      "REVIEW": "Reviews",
+      "ADMIN": "Adjustments"
+    }
+  },
+  "profile": {
+    "memberSince": "member since",
+    "favorite": "Favorite",
+    "follow": "Follow",
+    "block": "Block",
+    "activeMissions": "Active missions",
+    "reviews": "Reviews",
+    "noReviews": "No reviews yet."
+  },
+  "review": {
+    "title": "Reviews",
+    "locked": "Reviews open 12 hours after completion.",
+    "commentPlaceholder": "Optional comment",
+    "submit": "Submit review",
+    "yours": "Your review",
+    "blindNote": "hidden until both sides review (or the window closes)",
+    "theirs": "Their review of you",
+    "respondPlaceholder": "Respond publicly (once)",
+    "respond": "Respond"
+  },
   "prefs": {
     "title": "Category preferences",
     "hint": "Your defaults as a traveler — tap to cycle Accept → Ask → Reject → off. New trips start from these.",

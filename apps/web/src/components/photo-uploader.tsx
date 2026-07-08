@@ -11,7 +11,7 @@ export function PhotoUploader({
   subjectId,
   onDone,
 }: {
-  context: 'ITEM_PHOTO' | 'TRIP_VERIFICATION';
+  context: 'ITEM_PHOTO' | 'TRIP_VERIFICATION' | 'KYC';
   subjectId: string;
   onDone: () => void;
 }) {

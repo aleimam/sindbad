@@ -4,7 +4,7 @@ import { use, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { ArrowRight, Plane } from 'lucide-react';
 import { Avatar, Button, Card, CategoryChip, StatusPill } from '@sindbad/ui';
-import { useRouter } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { api, ApiError, mediaUrl } from '@/lib/api';
 import { fmtDate, fmtUsd, usdToCents } from '@/lib/format';
 import { localizedName, useApiGet } from '@/lib/use-api';
@@ -85,10 +85,12 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       </Card>
 
-      <Card className="flex items-center gap-3 p-4">
-        <Avatar name={m.account.displayName} />
-        <div className="text-sm font-semibold">{m.account.displayName}</div>
-      </Card>
+      <Link href={`/users/${m.account.id}`} className="block">
+        <Card className="flex items-center gap-3 p-4 transition-colors hover:border-royal">
+          <Avatar name={m.account.displayName} />
+          <div className="text-sm font-semibold">{m.account.displayName}</div>
+        </Card>
+      </Link>
 
       {m.trip ? (
         <div className="grid grid-cols-2 gap-3">

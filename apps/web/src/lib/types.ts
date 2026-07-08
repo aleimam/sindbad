@@ -101,6 +101,7 @@ export interface Deal {
   shipmentMissionId: string;
   createdAt: string;
   updatedAt: string;
+  completedAt: string | null;
   travelerAccount: AccountRef;
   shopperAccount: AccountRef;
   tripMission: Mission & { trip: TripData | null };

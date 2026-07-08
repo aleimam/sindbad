@@ -18,6 +18,7 @@ import { LedgerService } from './ledger.service';
 import { WalletOpsService } from './wallet-ops.service';
 import { FxService } from './fx.service';
 import { SettingsService } from './settings.service';
+import { SmartService } from './smart.service';
 
 @ApiTags('admin/finance')
 @ApiBearerAuth()
@@ -29,8 +30,40 @@ export class AdminFinanceController {
     private readonly ops: WalletOpsService,
     private readonly fx: FxService,
     private readonly settings: SettingsService,
+    private readonly smart: SmartService,
     private readonly prisma: PrismaService,
   ) {}
+
+  // ── SMART recalibration (pricing.smart.approve) ──
+
+  @Get('smart')
+  @RequirePermissions('pricing.smart.approve')
+  @ApiOperation({ summary: 'SMART recalibration proposals (monthly job output)' })
+  smartProposals() {
+    return this.smart.listProposals();
+  }
+
+  @Post('smart/run')
+  @HttpCode(200)
+  @RequirePermissions('pricing.smart.approve')
+  @ApiOperation({ summary: 'Run the recalibration now (normally monthly)' })
+  runSmart() {
+    return this.smart.buildProposal();
+  }
+
+  @Post('smart/:id/approve')
+  @HttpCode(200)
+  @RequirePermissions('pricing.smart.approve')
+  approveSmart(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.smart.decide(id, user.userId, true);
+  }
+
+  @Post('smart/:id/reject')
+  @HttpCode(200)
+  @RequirePermissions('pricing.smart.approve')
+  rejectSmart(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.smart.decide(id, user.userId, false);
+  }
 
   // ── Deposits queue (finance.deposits) ──
 

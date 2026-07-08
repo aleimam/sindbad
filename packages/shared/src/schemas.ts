@@ -155,8 +155,14 @@ export const requestDealSchema = z.object({
   shipmentMissionId: z.string().min(1),
   feeUsd: z.number().int().min(0).optional(), // defaults to the shipment/trip asking fee
   paymentMethod: z.enum(['CASH', 'IN_APP']).default('CASH'),
+  pricingMode: z.enum(['FIXED', 'VARIABLE']).optional(), // BASKET only (decision L2)
 });
 export type RequestDealInput = z.infer<typeof requestDealSchema>;
+
+export const actualPriceSchema = z.object({
+  amountMinor: z.number().int().min(0),
+});
+export type ActualPriceInput = z.infer<typeof actualPriceSchema>;
 
 export const changeFeeSchema = z.object({
   feeUsd: z.number().int().min(0),

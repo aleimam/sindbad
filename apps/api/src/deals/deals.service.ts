@@ -12,7 +12,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { LedgerService } from '../money/ledger.service';
 import { FxService } from '../money/fx.service';
 import { SettingsService } from '../money/settings.service';
-import { escrowAmountMinor } from '../money/fee-engine';
+import { escrowAmountMinor, reconcileVariable } from '../money/fee-engine';
 import { egpForUsd } from '../money/fx';
 import { shipmentTotalWeight } from '../matching/matching';
 import {
@@ -101,6 +101,10 @@ export class DealsService {
     const feeUsd =
       input.feeUsd ?? shipmentMission.shipment.feeUsd ?? tripMission.trip.feeUsd ?? 0;
 
+    // Pricing mode is a Basket concept (decision L2); Baskets default to FIXED.
+    const pricingMode =
+      shipmentMission.shipment.type === 'BASKET' ? (input.pricingMode ?? 'FIXED') : null;
+
     const deal = await this.prisma.deal.create({
       data: {
         tripMissionId: tripMission.id,
@@ -110,6 +114,7 @@ export class DealsService {
         requestedByAccountId: actingAccountId,
         lastOfferByAccountId: actingAccountId,
         paymentMethod: input.paymentMethod,
+        pricingMode,
         feeUsd,
         events: {
           create: {
@@ -162,10 +167,15 @@ export class DealsService {
     });
     const weight = shipmentTotalWeight(shipment?.items ?? []);
 
-    // In-app deals escrow on acceptance (docs/02 §4): Box = fee; Basket = fee + price.
+    // In-app deals escrow on acceptance (docs/02 §4 + decision L2 pricing modes).
     const escrowMinor =
       deal.paymentMethod === 'IN_APP'
-        ? escrowAmountMinor(shipment?.type ?? 'BOX', deal.feeUsd, shipment?.items ?? [])
+        ? escrowAmountMinor(
+            shipment?.type ?? 'BOX',
+            deal.pricingMode,
+            deal.feeUsd,
+            shipment?.items ?? [],
+          )
         : 0;
     const shopperWalletId =
       escrowMinor > 0 ? await this.ledger.ensureWallet(deal.shopperAccountId) : null;
@@ -184,38 +194,7 @@ export class DealsService {
       }
       // Fund escrow atomically with the acceptance (aborts on insufficient balance).
       if (escrowMinor > 0 && shopperWalletId) {
-        // Decision O1: an EGP balance may cover a USD obligation at the daily
-        // rate + admin spread — auto-convert the shortfall before escrowing.
-        const balances = await this.ledger.getBalances(deal.shopperAccountId);
-        const shortfall = escrowMinor - balances.balances.USD;
-        if (shortfall > 0) {
-          const [rate, spreadPct] = await Promise.all([
-            this.fx.latestUsdToEgp(),
-            this.settings.getFxSpreadPct(),
-          ]);
-          const quote = egpForUsd(shortfall, rate, spreadPct);
-          await this.ledger.post({
-            type: 'FX_CONVERT',
-            dealId,
-            note: `Auto FX for escrow at ${rate} EGP/USD (+${spreadPct}%)`,
-            entries: [
-              { walletId: shopperWalletId, currency: 'EGP', amountMinor: -quote.egpTotalMinor },
-              { systemAccount: 'FX', currency: 'EGP', amountMinor: quote.egpBaseMinor },
-              ...(quote.egpSpreadMinor > 0
-                ? [
-                    {
-                      systemAccount: 'PLATFORM_REVENUE' as const,
-                      currency: 'EGP' as const,
-                      amountMinor: quote.egpSpreadMinor,
-                    },
-                  ]
-                : []),
-              { systemAccount: 'FX', currency: 'USD', amountMinor: -shortfall },
-              { walletId: shopperWalletId, currency: 'USD', amountMinor: shortfall },
-            ],
-            tx,
-          });
-        }
+        await this.fundUsdShortfall(deal.shopperAccountId, shopperWalletId, escrowMinor, tx, dealId);
         await this.ledger.post({
           type: 'ESCROW_FUND',
           dealId,
@@ -245,6 +224,70 @@ export class DealsService {
       });
     });
     this.notifyOther(updated, actingAccountId, 'Your deal was accepted');
+    return this.serialize(updated, actingAccountId);
+  }
+
+  /**
+   * Decision O1: an EGP balance may cover a USD obligation at the daily rate +
+   * admin spread — auto-converts the shortfall so `usdNeeded` becomes available.
+   */
+  private async fundUsdShortfall(
+    accountId: string,
+    walletId: string,
+    usdNeeded: number,
+    tx: Prisma.TransactionClient,
+    dealId?: string,
+  ) {
+    const balances = await this.ledger.getBalances(accountId);
+    const shortfall = usdNeeded - balances.balances.USD;
+    if (shortfall <= 0) return;
+    const [rate, spreadPct] = await Promise.all([
+      this.fx.latestUsdToEgp(),
+      this.settings.getFxSpreadPct(),
+    ]);
+    const quote = egpForUsd(shortfall, rate, spreadPct);
+    await this.ledger.post({
+      type: 'FX_CONVERT',
+      dealId,
+      note: `Auto FX at ${rate} EGP/USD (+${spreadPct}%)`,
+      entries: [
+        { walletId, currency: 'EGP', amountMinor: -quote.egpTotalMinor },
+        { systemAccount: 'FX', currency: 'EGP', amountMinor: quote.egpBaseMinor },
+        ...(quote.egpSpreadMinor > 0
+          ? [
+              {
+                systemAccount: 'PLATFORM_REVENUE' as const,
+                currency: 'EGP' as const,
+                amountMinor: quote.egpSpreadMinor,
+              },
+            ]
+          : []),
+        { systemAccount: 'FX', currency: 'USD', amountMinor: -shortfall },
+        { walletId, currency: 'USD', amountMinor: shortfall },
+      ],
+      tx,
+    });
+  }
+
+  /** VARIABLE basket: the traveler records what the products actually cost. */
+  async setActualPrice(dealId: string, actingAccountId: string, amountMinor: number) {
+    const deal = await this.getPartyDeal(dealId, actingAccountId);
+    if (this.partyOf(deal, actingAccountId) !== 'TRAVELER')
+      throw new ForbiddenException('Only the traveler sets the actual price');
+    if (deal.pricingMode !== 'VARIABLE')
+      throw new BadRequestException('This deal is not variable-priced');
+    if (!['ONGOING', 'ARRIVED_DESTINATION', 'READY_FOR_PICKUP'].includes(deal.status))
+      throw new BadRequestException('Deal is not in progress');
+
+    const updated = await this.prisma.deal.update({
+      where: { id: dealId },
+      data: {
+        actualPriceUsd: amountMinor,
+        events: { create: { type: 'actual.price.set', data: { amountMinor } } },
+      },
+      include: DEAL_INCLUDE,
+    });
+    this.notifyOther(updated, actingAccountId, 'The actual product cost was recorded on your deal');
     return this.serialize(updated, actingAccountId);
   }
 
@@ -347,18 +390,60 @@ export class DealsService {
         'This deal is flagged — both parties must approve a resolution before completing',
       );
 
-    // Escrow releases to the traveler on completion (commission = 0 at launch).
-    const travelerWalletId =
-      deal.escrowedUsd > 0 ? await this.ledger.ensureWallet(deal.travelerAccountId) : null;
+    // VARIABLE baskets reconcile before release (decision 2026-06-25):
+    // top-up from the shopper or partial refund, then the final total pays out.
+    let releaseMinor = deal.escrowedUsd;
+    let reconcileDelta = 0;
+    if (deal.paymentMethod === 'IN_APP' && deal.pricingMode === 'VARIABLE') {
+      if (deal.actualPriceUsd === null)
+        throw new BadRequestException(
+          'The traveler must record the actual product cost before completion',
+        );
+      const r = reconcileVariable(deal.escrowedUsd, deal.feeUsd, deal.actualPriceUsd);
+      releaseMinor = r.finalTotalMinor;
+      reconcileDelta = r.deltaMinor;
+    }
+
+    const [travelerWalletId, shopperWalletId] = await Promise.all([
+      releaseMinor > 0 ? this.ledger.ensureWallet(deal.travelerAccountId) : null,
+      reconcileDelta !== 0 || releaseMinor > 0
+        ? this.ledger.ensureWallet(deal.shopperAccountId)
+        : null,
+    ]);
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      if (deal.escrowedUsd > 0 && travelerWalletId) {
+      if (reconcileDelta > 0 && shopperWalletId) {
+        // Shopper tops up the difference (EGP auto-converts if needed).
+        await this.fundUsdShortfall(deal.shopperAccountId, shopperWalletId, reconcileDelta, tx, dealId);
+        await this.ledger.post({
+          type: 'ESCROW_TOPUP',
+          dealId,
+          entries: [
+            { walletId: shopperWalletId, currency: 'USD', amountMinor: -reconcileDelta },
+            { systemAccount: 'ESCROW', currency: 'USD', amountMinor: reconcileDelta },
+          ],
+          tx,
+        });
+      } else if (reconcileDelta < 0 && shopperWalletId) {
+        // The estimate was high — refund the difference to the shopper.
+        await this.ledger.post({
+          type: 'ESCROW_REFUND',
+          dealId,
+          note: 'Variable-price reconciliation refund',
+          entries: [
+            { systemAccount: 'ESCROW', currency: 'USD', amountMinor: reconcileDelta },
+            { walletId: shopperWalletId, currency: 'USD', amountMinor: -reconcileDelta },
+          ],
+          tx,
+        });
+      }
+      if (releaseMinor > 0 && travelerWalletId) {
         await this.ledger.post({
           type: 'ESCROW_RELEASE',
           dealId,
           entries: [
-            { systemAccount: 'ESCROW', currency: 'USD', amountMinor: -deal.escrowedUsd },
-            { walletId: travelerWalletId, currency: 'USD', amountMinor: deal.escrowedUsd },
+            { systemAccount: 'ESCROW', currency: 'USD', amountMinor: -releaseMinor },
+            { walletId: travelerWalletId, currency: 'USD', amountMinor: releaseMinor },
           ],
           tx,
         });
@@ -371,8 +456,11 @@ export class DealsService {
           events: {
             create: [
               { type: 'completed', data: { accountId: actingAccountId } },
-              ...(deal.escrowedUsd > 0
-                ? [{ type: 'escrow.released', data: { amountMinor: deal.escrowedUsd } }]
+              ...(reconcileDelta !== 0
+                ? [{ type: 'escrow.reconciled', data: { deltaMinor: reconcileDelta } }]
+                : []),
+              ...(releaseMinor > 0
+                ? [{ type: 'escrow.released', data: { amountMinor: releaseMinor } }]
                 : []),
             ],
           },

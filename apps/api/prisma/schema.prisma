@@ -387,6 +387,18 @@ model FeeConfig {
   updatedAt        DateTime @updatedAt
 }
 
+/// Monthly SMART recalibration output — applied to FeeConfig only after admin approval.
+model FeeConfigProposal {
+  id              String   @id @default(cuid())
+  sampleSize      Int
+  ratio           Float // median(agreed / predicted) over completed deals
+  proposed        Json // { basketMultiplier, weightUsdPerKg, floorFeeUsd }
+  status          String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  decidedByUserId String?
+  decidedAt       DateTime?
+  createdAt       DateTime @default(now())
+}
+
 /// Generic admin-editable settings (money limits, FX spread, …).
 model SystemSetting {
   key       String   @id
@@ -637,6 +649,13 @@ enum PaymentMethod {
   IN_APP
 }
 
+/// Basket pricing (decision L2): FIXED = all-inclusive price, traveler bears risk;
+/// VARIABLE = actual costs + fee, shopper bears risk (estimate reconciled at completion).
+enum PricingMode {
+  FIXED
+  VARIABLE
+}
+
 model Deal {
   id                   String        @id @default(cuid())
   tripMissionId        String
@@ -648,7 +667,9 @@ model Deal {
   status               DealStatus    @default(REQUESTED)
   ongoingStep          OngoingStep?
   paymentMethod        PaymentMethod @default(CASH)
-  feeUsd               Int // agreed fee, minor units
+  feeUsd               Int // agreed fee, minor units (FIXED baskets: all-inclusive price)
+  pricingMode          PricingMode? // BASKET only; null for BOX
+  actualPriceUsd       Int? // VARIABLE baskets: actual product cost set by the traveler
   escrowedUsd          Int           @default(0) // currently held in escrow for this deal
   travelerPaysAllCustoms Boolean     @default(false) // exempts the deal from trip-level CUSTOMS flags
   cancelReason         String?

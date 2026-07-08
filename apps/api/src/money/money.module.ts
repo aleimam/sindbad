@@ -6,6 +6,7 @@ import { FeesService } from './fees.service';
 import { SettingsService } from './settings.service';
 import { FxService } from './fx.service';
 import { WalletOpsService } from './wallet-ops.service';
+import { SmartService } from './smart.service';
 import { MoneyController } from './money.controller';
 import { AdminFinanceController } from './admin-finance.controller';
 
@@ -13,7 +14,7 @@ import { AdminFinanceController } from './admin-finance.controller';
 @Module({
   imports: [AuthModule, AdminModule],
   controllers: [MoneyController, AdminFinanceController],
-  providers: [LedgerService, FeesService, SettingsService, FxService, WalletOpsService],
-  exports: [LedgerService, FeesService, SettingsService, FxService, WalletOpsService],
+  providers: [LedgerService, FeesService, SettingsService, FxService, WalletOpsService, SmartService],
+  exports: [LedgerService, FeesService, SettingsService, FxService, WalletOpsService, SmartService],
 })
 export class MoneyModule {}

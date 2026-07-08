@@ -48,15 +48,37 @@ export function feeForDeal(
 }
 
 /**
- * Escrow amount on acceptance (docs/02 §4): Box = fee; Basket = fee + product
- * price (declared values; the Variable-price estimate reconciles at completion).
+ * Escrow amount on acceptance (docs/02 §4 + decision L2):
+ *  - BOX: the fee.
+ *  - BASKET FIXED (Traveler Responsibility): the agreed fee is ALL-INCLUSIVE
+ *    (price + fee in one number) — escrow exactly that.
+ *  - BASKET VARIABLE (Shopper Responsibility): fee + declared-value estimate,
+ *    reconciled against the actual price at completion.
  */
 export function escrowAmountMinor(
   kind: 'BOX' | 'BASKET',
+  pricingMode: 'FIXED' | 'VARIABLE' | null,
   feeMinor: number,
   items: Array<{ declaredValueUsd: number | null; count: number }>,
 ): number {
   if (kind === 'BOX') return feeMinor;
-  const price = items.reduce((sum, i) => sum + (i.declaredValueUsd ?? 0) * i.count, 0);
-  return feeMinor + price;
+  if (pricingMode === 'VARIABLE') {
+    const estimate = items.reduce((sum, i) => sum + (i.declaredValueUsd ?? 0) * i.count, 0);
+    return feeMinor + estimate;
+  }
+  return feeMinor; // FIXED: all-inclusive
+}
+
+/**
+ * VARIABLE-basket reconciliation at completion (decision from 2026-06-25):
+ * final total = fee + actual price; positive delta = shopper top-up,
+ * negative delta = refund to the shopper.
+ */
+export function reconcileVariable(
+  escrowedMinor: number,
+  feeMinor: number,
+  actualPriceMinor: number,
+): { finalTotalMinor: number; deltaMinor: number } {
+  const finalTotalMinor = feeMinor + actualPriceMinor;
+  return { finalTotalMinor, deltaMinor: finalTotalMinor - escrowedMinor };
 }

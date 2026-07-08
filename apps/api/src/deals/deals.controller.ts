@@ -1,11 +1,13 @@
 import { Body, Controller, Get, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
+  actualPriceSchema,
   cancelDealSchema,
   changeFeeSchema,
   partiallyFlagSchema,
   requestDealSchema,
   resolutionSchema,
+  type ActualPriceInput,
   type CancelDealInput,
   type ChangeFeeInput,
   type PartiallyFlagInput,
@@ -100,6 +102,18 @@ export class DealsController {
   ) {
     const accountId = await this.accounts.getActingAccountId(user.userId);
     return this.deals.cancel(id, accountId, body.reason);
+  }
+
+  @Post(':id/actual-price')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Traveler: record the actual product cost (variable-price baskets)' })
+  async setActualPrice(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(actualPriceSchema)) body: ActualPriceInput,
+  ) {
+    const accountId = await this.accounts.getActingAccountId(user.userId);
+    return this.deals.setActualPrice(id, accountId, body.amountMinor);
   }
 
   @Post(':id/flags/partially')

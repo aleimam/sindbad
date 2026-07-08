@@ -36,7 +36,15 @@ const groups: Array<{
       { label: 'Cancellations', href: '/cancellations' },
     ],
   },
-  { label: 'Finance', Icon: Banknote },
+  {
+    label: 'Finance',
+    Icon: Banknote,
+    children: [
+      { label: 'Deposits', href: '/deposits' },
+      { label: 'Withdrawals', href: '/withdrawals' },
+      { label: 'FX rates', href: '/fx' },
+    ],
+  },
   { label: 'Support', Icon: LifeBuoy },
   { label: 'Pricing & Fees', Icon: Percent },
   { label: 'Catalogs & Settings', Icon: Settings },

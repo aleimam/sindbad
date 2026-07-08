@@ -119,7 +119,10 @@
     "carryThisShipment": "Carry this shipment",
     "needTrip": "Post a trip first to carry this shipment.",
     "pickTrip": "Choose your trip",
-    "feeOfferPlaceholder": "Your fee offer (USD, optional)"
+    "feeOfferPlaceholder": "Your fee offer (USD, optional)",
+    "getEstimate": "Get fee estimate",
+    "estimated": "Estimated",
+    "tapToUse": "tap to use"
   },
   "deal": {
     "group": {
@@ -174,6 +177,58 @@
     "cancelReason": "Reason for cancellation (required)",
     "markArrived": "Trip arrived",
     "markReady": "Ready for pickup"
+  },
+  "wallet": {
+    "title": "Wallet",
+    "deposit": "Deposit",
+    "withdraw": "Withdraw",
+    "send": "Send",
+    "transactions": "Transactions",
+    "noTransactions": "No transactions yet.",
+    "currency": "Currency",
+    "amount": "Amount",
+    "method": "Method",
+    "methods": { "INSTAPAY": "Instapay", "BANK_TRANSFER": "Bank transfer" },
+    "startDeposit": "Start deposit",
+    "myDeposits": "My deposits",
+    "referenceHint": "Put this code in the transfer memo",
+    "yourReference": "Your transfer reference no.",
+    "submitRef": "Submit",
+    "depositStatus": {
+      "REQUESTED": "Awaiting transfer",
+      "PENDING_REVIEW": "Under review",
+      "CONFIRMED": "Confirmed",
+      "REJECTED": "Rejected"
+    },
+    "bankAccounts": "Bank accounts",
+    "addBank": "Add account",
+    "holderName": "Account holder name",
+    "bankName": "Bank name",
+    "country": "Country",
+    "accountNumber": "Account number",
+    "saveBank": "Save bank account",
+    "holdNote": "The amount is held from your balance immediately; our team executes the transfer manually.",
+    "requestWithdrawal": "Request withdrawal",
+    "myWithdrawals": "My withdrawals",
+    "withdrawalStatus": { "PENDING": "Pending", "PAID": "Paid", "REJECTED": "Rejected" },
+    "recipient": "Recipient",
+    "recipientHint": "Email, phone number, or exact display name",
+    "continue": "Continue",
+    "otpHint": "Enter the 6-digit code we sent you to confirm this transfer.",
+    "confirmSend": "Confirm & send",
+    "tx": {
+      "DEPOSIT": "Deposit",
+      "WITHDRAWAL_HOLD": "Withdrawal hold",
+      "WITHDRAWAL_EXECUTE": "Withdrawal paid",
+      "WITHDRAWAL_RELEASE": "Withdrawal returned",
+      "TRANSFER": "Transfer",
+      "ESCROW_FUND": "Deal payment (escrow)",
+      "ESCROW_RELEASE": "Deal payout",
+      "ESCROW_REFUND": "Deal refund",
+      "ESCROW_TOPUP": "Deal top-up",
+      "ADMIN_ADJUSTMENT": "Adjustment",
+      "FX_CONVERT": "Currency conversion"
+    }
   },
   "prefs": {
     "title": "Category preferences",

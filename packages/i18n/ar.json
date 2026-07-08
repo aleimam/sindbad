@@ -119,7 +119,10 @@
     "carryThisShipment": "احمل هذه الشحنة",
     "needTrip": "أضف رحلة أولًا لحمل هذه الشحنة.",
     "pickTrip": "اختر رحلتك",
-    "feeOfferPlaceholder": "عرضك للرسوم (دولار، اختياري)"
+    "feeOfferPlaceholder": "عرضك للرسوم (دولار، اختياري)",
+    "getEstimate": "احسب الرسوم التقديرية",
+    "estimated": "التقدير",
+    "tapToUse": "اضغط للاستخدام"
   },
   "deal": {
     "group": {
@@ -174,6 +177,58 @@
     "cancelReason": "سبب الإلغاء (مطلوب)",
     "markArrived": "وصلت الرحلة",
     "markReady": "جاهزة للاستلام"
+  },
+  "wallet": {
+    "title": "المحفظة",
+    "deposit": "إيداع",
+    "withdraw": "سحب",
+    "send": "إرسال",
+    "transactions": "المعاملات",
+    "noTransactions": "لا توجد معاملات بعد.",
+    "currency": "العملة",
+    "amount": "المبلغ",
+    "method": "الطريقة",
+    "methods": { "INSTAPAY": "إنستاباي", "BANK_TRANSFER": "تحويل بنكي" },
+    "startDeposit": "بدء الإيداع",
+    "myDeposits": "إيداعاتي",
+    "referenceHint": "ضع هذا الرمز في خانة ملاحظات التحويل",
+    "yourReference": "رقم مرجع التحويل الخاص بك",
+    "submitRef": "إرسال",
+    "depositStatus": {
+      "REQUESTED": "بانتظار التحويل",
+      "PENDING_REVIEW": "قيد المراجعة",
+      "CONFIRMED": "تم التأكيد",
+      "REJECTED": "مرفوض"
+    },
+    "bankAccounts": "الحسابات البنكية",
+    "addBank": "إضافة حساب",
+    "holderName": "اسم صاحب الحساب",
+    "bankName": "اسم البنك",
+    "country": "الدولة",
+    "accountNumber": "رقم الحساب",
+    "saveBank": "حفظ الحساب البنكي",
+    "holdNote": "يُحجز المبلغ من رصيدك فورًا؛ وينفّذ فريقنا التحويل يدويًا.",
+    "requestWithdrawal": "طلب سحب",
+    "myWithdrawals": "سحوباتي",
+    "withdrawalStatus": { "PENDING": "قيد الانتظار", "PAID": "تم الدفع", "REJECTED": "مرفوض" },
+    "recipient": "المستلم",
+    "recipientHint": "بريد إلكتروني أو رقم هاتف أو اسم العرض بدقة",
+    "continue": "متابعة",
+    "otpHint": "أدخل الرمز المكوّن من 6 أرقام الذي أرسلناه لتأكيد التحويل.",
+    "confirmSend": "تأكيد وإرسال",
+    "tx": {
+      "DEPOSIT": "إيداع",
+      "WITHDRAWAL_HOLD": "حجز سحب",
+      "WITHDRAWAL_EXECUTE": "سحب مدفوع",
+      "WITHDRAWAL_RELEASE": "إرجاع سحب",
+      "TRANSFER": "تحويل",
+      "ESCROW_FUND": "دفع صفقة (ضمان)",
+      "ESCROW_RELEASE": "أرباح صفقة",
+      "ESCROW_REFUND": "استرداد صفقة",
+      "ESCROW_TOPUP": "استكمال صفقة",
+      "ADMIN_ADJUSTMENT": "تسوية",
+      "FX_CONVERT": "تحويل عملة"
+    }
   },
   "prefs": {
     "title": "تفضيلات الفئات",

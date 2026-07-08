@@ -43,8 +43,36 @@ export default function NewShipmentPage() {
   const [feeUsd, setFee] = useState('');
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<ItemDraft[]>([emptyItem()]);
+  const [estimate, setEstimate] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const canEstimate =
+    originCountryId &&
+    destinationCountryId &&
+    items.every((i) => i.categoryId && Number(i.volumetricWeightKg) > 0);
+
+  // Spec "Fee Estimation": show the system estimate; tapping copies it into the fee.
+  async function getEstimate() {
+    setEstimate(null);
+    try {
+      const res = await api<{ totalMinor: number }>('/fees/estimate', {
+        body: {
+          originCountryId,
+          destinationCountryId,
+          type,
+          items: items.map((i) => ({
+            categoryId: i.categoryId,
+            volumetricWeightKg: Number(i.volumetricWeightKg),
+            count: Number(i.count) || 1,
+          })),
+        },
+      });
+      setEstimate(res.totalMinor);
+    } catch {
+      setEstimate(null);
+    }
+  }
 
   const setItem = (i: number, patch: Partial<ItemDraft>) =>
     setItems((arr) => arr.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
@@ -215,6 +243,22 @@ export default function NewShipmentPage() {
             <Field label={t('market.notes')}>
               <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
             </Field>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-button bg-tint-blue p-3 dark:bg-royal/15">
+            {estimate === null ? (
+              <Button type="button" size="sm" variant="ghost" disabled={!canEstimate} onClick={getEstimate}>
+                {t('market.getEstimate')}
+              </Button>
+            ) : (
+              <button
+                type="button"
+                className="text-sm font-semibold text-royal"
+                onClick={() => setFee((estimate / 100).toFixed(2))}
+              >
+                {t('market.estimated')}: ${(estimate / 100).toFixed(2)} — {t('market.tapToUse')}
+              </button>
+            )}
           </div>
 
           {error ? <p className="text-xs text-error">{error}</p> : null}

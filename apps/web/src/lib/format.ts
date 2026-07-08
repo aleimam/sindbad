@@ -15,3 +15,18 @@ export function fmtDate(iso: string | Date | null | undefined): string {
   const d = typeof iso === 'string' ? new Date(iso) : iso;
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
+
+/** Any-currency minor units → display (Latin numerals per decision V4). */
+export function fmtAmount(minor: number, currency: 'USD' | 'EGP'): string {
+  const value = (minor / 100).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return currency === 'USD' ? `$${value}` : `${value} EGP`;
+}
+
+export function toMinor(value: string): number | undefined {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  return Math.round(n * 100);
+}

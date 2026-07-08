@@ -71,6 +71,12 @@ export default function AccountPage() {
         ))}
       </div>
 
+      <Link href="/account/wallet" className="block">
+        <Button variant="ghost" className="w-full">
+          {t('wallet.title')}
+        </Button>
+      </Link>
+
       <Link href="/account/preferences" className="block">
         <Button variant="ghost" className="w-full">
           {t('prefs.title')}

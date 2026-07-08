@@ -239,6 +239,58 @@ export const feeConfigSchema = z.object({
 });
 export type FeeConfigInput = z.infer<typeof feeConfigSchema>;
 
+export const createDepositSchema = z.object({
+  currency: z.enum(['USD', 'EGP']),
+  amountMinor: z.number().int().positive(),
+  method: z.enum(['INSTAPAY', 'BANK_TRANSFER']),
+});
+export type CreateDepositInput = z.infer<typeof createDepositSchema>;
+
+export const submitDepositSchema = z.object({
+  userReference: z.string().min(2).max(120),
+});
+export type SubmitDepositInput = z.infer<typeof submitDepositSchema>;
+
+export const bankAccountSchema = z.object({
+  holderName: z.string().min(2).max(120),
+  country: z.string().min(2).max(80),
+  bankName: z.string().min(2).max(120),
+  accountNumber: z.string().min(4).max(60),
+  iban: z.string().max(40).optional(),
+  routingNumber: z.string().max(20).optional(),
+  swift: z.string().max(15).optional(),
+  holderAddress: z.string().max(300).optional(),
+});
+export type BankAccountInput = z.infer<typeof bankAccountSchema>;
+
+export const withdrawalSchema = z.object({
+  bankAccountId: z.string().min(1),
+  currency: z.enum(['USD', 'EGP']),
+  amountMinor: z.number().int().positive(),
+});
+export type WithdrawalInput = z.infer<typeof withdrawalSchema>;
+
+export const transferInitiateSchema = z.object({
+  recipient: z.string().min(3).max(120), // email, phone, or exact display name
+  currency: z.enum(['USD', 'EGP']),
+  amountMinor: z.number().int().positive(),
+});
+export type TransferInitiateInput = z.infer<typeof transferInitiateSchema>;
+
+export const transferConfirmSchema = z.object({
+  transferId: z.string().min(1),
+  code: z
+    .string()
+    .length(6)
+    .regex(/^\d{6}$/),
+});
+export type TransferConfirmInput = z.infer<typeof transferConfirmSchema>;
+
+export const fxManualRateSchema = z.object({
+  usdToEgp: z.number().positive(),
+});
+export type FxManualRateInput = z.infer<typeof fxManualRateSchema>;
+
 export const categoryPreferencesSchema = z.object({
   items: z.array(
     z.object({

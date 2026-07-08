@@ -10,7 +10,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { MatchingService } from '../matching/matching.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { LedgerService } from '../money/ledger.service';
+import { FxService } from '../money/fx.service';
+import { SettingsService } from '../money/settings.service';
 import { escrowAmountMinor } from '../money/fee-engine';
+import { egpForUsd } from '../money/fx';
 import { shipmentTotalWeight } from '../matching/matching';
 import {
   canAccept,
@@ -50,6 +53,8 @@ export class DealsService {
     private readonly flags: FlagsService,
     private readonly notifications: NotificationsService,
     private readonly ledger: LedgerService,
+    private readonly fx: FxService,
+    private readonly settings: SettingsService,
   ) {}
 
   /** Notify the counterpart of an acting party (fire-and-forget). */
@@ -179,6 +184,38 @@ export class DealsService {
       }
       // Fund escrow atomically with the acceptance (aborts on insufficient balance).
       if (escrowMinor > 0 && shopperWalletId) {
+        // Decision O1: an EGP balance may cover a USD obligation at the daily
+        // rate + admin spread — auto-convert the shortfall before escrowing.
+        const balances = await this.ledger.getBalances(deal.shopperAccountId);
+        const shortfall = escrowMinor - balances.balances.USD;
+        if (shortfall > 0) {
+          const [rate, spreadPct] = await Promise.all([
+            this.fx.latestUsdToEgp(),
+            this.settings.getFxSpreadPct(),
+          ]);
+          const quote = egpForUsd(shortfall, rate, spreadPct);
+          await this.ledger.post({
+            type: 'FX_CONVERT',
+            dealId,
+            note: `Auto FX for escrow at ${rate} EGP/USD (+${spreadPct}%)`,
+            entries: [
+              { walletId: shopperWalletId, currency: 'EGP', amountMinor: -quote.egpTotalMinor },
+              { systemAccount: 'FX', currency: 'EGP', amountMinor: quote.egpBaseMinor },
+              ...(quote.egpSpreadMinor > 0
+                ? [
+                    {
+                      systemAccount: 'PLATFORM_REVENUE' as const,
+                      currency: 'EGP' as const,
+                      amountMinor: quote.egpSpreadMinor,
+                    },
+                  ]
+                : []),
+              { systemAccount: 'FX', currency: 'USD', amountMinor: -shortfall },
+              { walletId: shopperWalletId, currency: 'USD', amountMinor: shortfall },
+            ],
+            tx,
+          });
+        }
         await this.ledger.post({
           type: 'ESCROW_FUND',
           dealId,

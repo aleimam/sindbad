@@ -387,6 +387,115 @@ model FeeConfig {
   updatedAt        DateTime @updatedAt
 }
 
+/// Generic admin-editable settings (money limits, FX spread, …).
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ── Deposits / withdrawals / transfers / FX (docs/02 §4) ──
+
+enum DepositMethod {
+  INSTAPAY
+  BANK_TRANSFER
+  // CARD / APPLE_PAY arrive with the gateway adapters (Kashier/OPay credentials)
+}
+
+enum DepositStatus {
+  REQUESTED // transfer details + order number shown to the user
+  PENDING_REVIEW // user submitted the transfer reference
+  CONFIRMED
+  REJECTED
+}
+
+model DepositRequest {
+  id              String        @id @default(cuid())
+  accountId       String
+  currency        Currency
+  amountMinor     Int
+  method          DepositMethod
+  referenceCode   String        @unique // the order number the user puts in the transfer memo
+  userReference   String? // the bank/Instapay transaction number the user submits
+  status          DepositStatus @default(REQUESTED)
+  decidedByUserId String?
+  decidedAt       DateTime?
+  createdAt       DateTime      @default(now())
+
+  @@index([status])
+  @@index([accountId])
+}
+
+model BankAccount {
+  id            String   @id @default(cuid())
+  accountId     String
+  holderName    String
+  country       String
+  bankName      String
+  accountNumber String
+  iban          String?
+  routingNumber String?
+  swift         String?
+  holderAddress String?
+  createdAt     DateTime @default(now())
+
+  withdrawals WithdrawalRequest[]
+
+  @@index([accountId])
+}
+
+enum WithdrawalStatus {
+  PENDING // funds held (WITHDRAWAL_HOLD) at request time
+  PAID
+  REJECTED // hold released
+}
+
+model WithdrawalRequest {
+  id              String           @id @default(cuid())
+  accountId       String
+  bankAccountId   String
+  currency        Currency
+  amountMinor     Int
+  status          WithdrawalStatus @default(PENDING)
+  decidedByUserId String?
+  decidedAt       DateTime?
+  createdAt       DateTime         @default(now())
+
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id])
+
+  @@index([status])
+  @@index([accountId])
+}
+
+enum TransferStatus {
+  PENDING_OTP // spec O7: transfers re-verify identity by OTP
+  SENT
+  CANCELLED
+}
+
+model Transfer {
+  id             String         @id @default(cuid())
+  fromAccountId  String
+  toAccountId    String
+  currency       Currency
+  amountMinor    Int
+  status         TransferStatus @default(PENDING_OTP)
+  otpChallengeId String?
+  createdAt      DateTime       @default(now())
+  confirmedAt    DateTime?
+
+  @@index([fromAccountId, createdAt])
+}
+
+/// Daily USD→EGP rate (free API) — spread applied on top (admin-set, 0 at launch).
+model FxRate {
+  id        String   @id @default(cuid())
+  day       DateTime @unique // truncated to the day
+  usdToEgp  Float
+  source    String
+  createdAt DateTime @default(now())
+}
+
 // ── Media (docs/02 §12 — one polymorphic Attachment model) ──
 
 enum AttachmentContext {

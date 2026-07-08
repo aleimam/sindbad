@@ -3,6 +3,9 @@ import { AuthModule } from '../auth/auth.module';
 import { AdminModule } from '../admin/admin.module';
 import { LedgerService } from './ledger.service';
 import { FeesService } from './fees.service';
+import { SettingsService } from './settings.service';
+import { FxService } from './fx.service';
+import { WalletOpsService } from './wallet-ops.service';
 import { MoneyController } from './money.controller';
 import { AdminFinanceController } from './admin-finance.controller';
 
@@ -10,7 +13,7 @@ import { AdminFinanceController } from './admin-finance.controller';
 @Module({
   imports: [AuthModule, AdminModule],
   controllers: [MoneyController, AdminFinanceController],
-  providers: [LedgerService, FeesService],
-  exports: [LedgerService, FeesService],
+  providers: [LedgerService, FeesService, SettingsService, FxService, WalletOpsService],
+  exports: [LedgerService, FeesService, SettingsService, FxService, WalletOpsService],
 })
 export class MoneyModule {}

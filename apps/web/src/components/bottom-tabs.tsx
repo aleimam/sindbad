@@ -18,7 +18,10 @@ export function BottomTabs() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md border-t border-slate-border bg-white/95 backdrop-blur dark:border-slate-dark dark:bg-navy/95">
+    <nav
+      aria-label="Primary"
+      className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md border-t border-slate-border bg-white/95 backdrop-blur dark:border-slate-dark dark:bg-navy/95"
+    >
       <div className="flex items-stretch justify-around py-2">
         {tabs.map(({ href, key, Icon }) => {
           const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -26,12 +29,14 @@ export function BottomTabs() {
             <Link
               key={key}
               href={href}
+              aria-current={active ? 'page' : undefined}
               className={cn(
-                'flex min-w-14 flex-col items-center gap-0.5 py-1 text-[10px] font-medium',
+                'flex min-w-14 flex-col items-center gap-0.5 rounded-button py-1 text-[10px] font-medium',
+                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal',
                 active ? 'text-royal' : 'text-slate-light hover:text-slate',
               )}
             >
-              <Icon className="h-5 w-5" />
+              <Icon className="h-5 w-5" aria-hidden="true" />
               {t(key)}
             </Link>
           );

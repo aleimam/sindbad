@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { Card } from '@sindbad/ui';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
+import { fmtDate } from '@/lib/format';
 import { useMe } from '@/lib/use-me';
 
 interface Complaint {
@@ -21,7 +22,7 @@ const statusColor: Record<Complaint['status'], string> = {
   NEW: 'bg-slate/10 text-slate',
   UNDER_REVIEW: 'bg-amber/10 text-amber',
   RESOLVED: 'bg-teal/10 text-teal',
-  DISMISSED: 'bg-navy/5 text-navy',
+  DISMISSED: 'bg-navy/5 text-navy dark:bg-white/10 dark:text-offwhite',
 };
 
 export default function SupportPage() {
@@ -66,10 +67,12 @@ export default function SupportPage() {
               </div>
               <p className="text-sm text-slate">{c.details}</p>
               <div className="text-[11px] text-slate-light">
-                {t(`support.target.${c.targetType}`)} · {new Date(c.createdAt).toLocaleDateString()}
+                {t(`support.target.${c.targetType}`)} · {fmtDate(c.createdAt)}
               </div>
               {c.decision && (
-                <p className="rounded-button bg-cloud px-3 py-2 text-xs text-navy">{c.decision}</p>
+                <p className="rounded-button bg-cloud px-3 py-2 text-xs text-navy dark:bg-white/5 dark:text-offwhite">
+                  {c.decision}
+                </p>
               )}
             </Card>
           ))}

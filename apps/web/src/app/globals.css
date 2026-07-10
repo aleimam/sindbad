@@ -13,3 +13,25 @@
 body {
   @apply bg-offwhite text-navy antialiased dark:bg-navy dark:text-offwhite;
 }
+
+/* Keyboard focus is always visible on interactive elements (WCAG 2.4.7). */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  @apply outline outline-2 outline-offset-2 outline-royal;
+}
+
+/* Respect users who prefer reduced motion (WCAG 2.3.3). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

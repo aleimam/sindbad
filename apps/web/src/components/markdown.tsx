@@ -17,7 +17,7 @@ function renderInline(text: string): ReactNode {
 export function Markdown({ source, dir }: { source: string; dir?: 'ltr' | 'rtl' }) {
   const blocks = source.split(/\n{2,}/);
   return (
-    <div dir={dir} className="space-y-3 text-sm leading-relaxed text-navy">
+    <div dir={dir} className="space-y-3 text-sm leading-relaxed text-navy dark:text-offwhite">
       {blocks.map((block, i) => {
         const trimmed = block.trim();
         if (trimmed.startsWith('### '))

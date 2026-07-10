@@ -5,7 +5,8 @@
     "trips": "الرحلات",
     "shipments": "الشحنات",
     "deals": "الصفقات",
-    "account": "الحساب"
+    "account": "الحساب",
+    "skipToContent": "تخطَّ إلى المحتوى"
   },
   "action": {
     "postTrip": "أضف رحلة",
@@ -240,7 +241,8 @@
     "messagePlaceholder": "اكتب رسالة…",
     "replyingTo": "رد على",
     "editing": "تعديل الرسالة",
-    "message": "مراسلة"
+    "message": "مراسلة",
+    "queued": "في الانتظار — تُرسل عند الاتصال"
   },
   "verif": {
     "title": "التوثيق",

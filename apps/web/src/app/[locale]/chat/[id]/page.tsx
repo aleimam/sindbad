@@ -2,11 +2,29 @@
 
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Check, CheckCheck, CornerUpLeft, Image as ImageIcon, Pencil, Send, Trash2, X } from 'lucide-react';
+import {
+  Check,
+  CheckCheck,
+  Clock,
+  CornerUpLeft,
+  Image as ImageIcon,
+  Pencil,
+  Send,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { Card, cn } from '@sindbad/ui';
 import { api, apiUpload, mediaUrl } from '@/lib/api';
 import { useMe } from '@/lib/use-me';
+import { useOnline } from '@/lib/use-online';
 import { useChatSocket } from '@/lib/use-chat-socket';
+import {
+  enqueue as outboxEnqueue,
+  flush as outboxFlush,
+  makeLocalId,
+  pendingFor,
+  type OutboxMessage,
+} from '@/lib/chat-outbox';
 import type { ChatMessage } from '@/lib/chat-types';
 
 const EDIT_WINDOW_MS = 15 * 60 * 1000;
@@ -15,14 +33,18 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
   const { id: threadId } = use(params);
   const t = useTranslations();
   const { me } = useMe();
+  const online = useOnline();
   const myAccountId = me?.memberships[0]?.account.id;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [pending, setPending] = useState<OutboxMessage[]>([]);
   const [text, setText] = useState('');
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [editing, setEditing] = useState<ChatMessage | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const refreshPending = useCallback(() => setPending(pendingFor(threadId)), [threadId]);
 
   const load = useCallback(() => {
     api<ChatMessage[]>(`/chat/threads/${threadId}/messages`)
@@ -31,13 +53,33 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
     api(`/chat/threads/${threadId}/read`, { body: {} }).catch(() => undefined);
   }, [threadId]);
 
+  const flushOutbox = useCallback(async () => {
+    const sent = await outboxFlush(threadId, (m) =>
+      api(`/chat/threads/${threadId}/messages`, {
+        body: { body: m.body, replyToId: m.replyToId },
+      })
+        .then(() => true)
+        .catch(() => false),
+    );
+    refreshPending();
+    if (sent > 0) load();
+  }, [threadId, load, refreshPending]);
+
   useEffect(() => {
-    if (me) load();
-  }, [me, load]);
+    if (me) {
+      load();
+      refreshPending();
+    }
+  }, [me, load, refreshPending]);
+
+  // Flush queued messages whenever connectivity returns (and on first load).
+  useEffect(() => {
+    if (me && online) void flushOutbox();
+  }, [me, online, flushOutbox]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, pending]);
 
   // Live updates for this thread.
   useChatSocket({
@@ -60,15 +102,36 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
     if (!body) return;
     setText('');
     if (editing) {
+      // Edits require connectivity (15-min server window); skip silently if offline.
       await api(`/chat/messages/${editing.id}/edit`, { body: { body } }).catch(() => undefined);
       setEditing(null);
-    } else {
-      await api(`/chat/threads/${threadId}/messages`, {
-        body: { body, replyToId: replyTo?.id },
-      }).catch(() => undefined);
-      setReplyTo(null);
+      load();
+      return;
     }
-    load();
+
+    const replyToId = replyTo?.id;
+    setReplyTo(null);
+
+    const queue = () => {
+      outboxEnqueue({
+        localId: makeLocalId(),
+        threadId,
+        body,
+        replyToId,
+        createdAt: new Date().toISOString(),
+      });
+      refreshPending();
+    };
+
+    if (!online) {
+      queue();
+      return;
+    }
+    const ok = await api(`/chat/threads/${threadId}/messages`, { body: { body, replyToId } })
+      .then(() => true)
+      .catch(() => false);
+    if (ok) load();
+    else queue();
   }
 
   async function sendPhoto(file: File) {
@@ -185,6 +248,17 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
             </div>
           );
         })}
+        {pending.map((m) => (
+          <div key={m.localId} className="flex justify-end">
+            <div className="max-w-[80%] rounded-panel bg-royal/70 px-3 py-2 text-sm text-white">
+              <div>{m.body}</div>
+              <div className="mt-0.5 flex items-center justify-end gap-1 text-[10px] opacity-80">
+                <Clock className="h-3 w-3" aria-hidden="true" />
+                <span>{t('chat.queued')}</span>
+              </div>
+            </div>
+          </div>
+        ))}
         <div ref={bottomRef} />
       </div>
 

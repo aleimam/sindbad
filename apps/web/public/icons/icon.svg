@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Sindbad">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#1E3A8A"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- Paper plane — travel / delivery mark -->
+  <path d="M120 268 L392 132 L326 396 L262 320 L214 356 L214 300 Z" fill="#FFFFFF"/>
+  <path d="M262 320 L214 300 L392 132 Z" fill="#BFDBFE"/>
+</svg>

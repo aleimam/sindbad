@@ -64,7 +64,7 @@ function ReportDialog({
       <Card className="w-full max-w-md space-y-4 rounded-b-none p-6 sm:rounded-card">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg font-bold">{t('support.reportTitle')}</h2>
-          <span className="rounded-full bg-navy/5 px-2 py-0.5 text-[11px] font-semibold text-navy">
+          <span className="rounded-full bg-navy/5 px-2 py-0.5 text-[11px] font-semibold text-navy dark:bg-white/10 dark:text-offwhite">
             {t(`support.target.${targetType}`)}
           </span>
         </div>
@@ -95,7 +95,7 @@ function ReportDialog({
                 placeholder={t('support.detailsPlaceholder')}
                 onChange={(e) => setDetails(e.target.value)}
                 rows={4}
-                className="mt-1 w-full rounded-button border border-slate-border px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-button border border-slate-border bg-offwhite px-3 py-2 text-sm dark:border-slate-dark dark:bg-slate-dark/40"
               />
             </label>
             {error && <p className="text-sm text-red-600">{error}</p>}

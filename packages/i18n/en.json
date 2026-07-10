@@ -5,7 +5,8 @@
     "trips": "Trips",
     "shipments": "Shipments",
     "deals": "Deals",
-    "account": "Account"
+    "account": "Account",
+    "skipToContent": "Skip to content"
   },
   "action": {
     "postTrip": "Post a trip",
@@ -240,7 +241,8 @@
     "messagePlaceholder": "Type a message…",
     "replyingTo": "Replying to",
     "editing": "Editing message",
-    "message": "Message"
+    "message": "Message",
+    "queued": "Queued — will send when online"
   },
   "verif": {
     "title": "Verification",

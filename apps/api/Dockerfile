@@ -28,7 +28,8 @@ RUN pnpm --filter @sindbad/api... build
 # Produce a flattened, prod-only node_modules (Linux native binaries) via pnpm deploy,
 # then assemble /app deterministically — dist/prisma are copied from source so we
 # never depend on pnpm-deploy's file-inclusion (pack) semantics.
-RUN pnpm --filter=@sindbad/api deploy --prod /deploy
+# --legacy: pnpm v10 refuses non-injected workspace deploys without it.
+RUN pnpm --filter=@sindbad/api deploy --prod --legacy /deploy
 RUN mkdir -p /app \
   && cp -a /deploy/node_modules /app/node_modules \
   && cp -a apps/api/dist /app/dist \

@@ -5,15 +5,13 @@ name: sindbad
 services:
   # ── Edge: TLS termination + routing (Let's Encrypt HTTP-01) ──
   traefik:
-    image: traefik:v3.1
+    image: traefik:v3.5
     restart: unless-stopped
-    # Docker Engine 29 dropped the legacy API version Traefik's client defaults to
-    # (1.24). Pin to a version within the daemon's supported range (1.40–1.55).
-    environment:
-      DOCKER_API_VERSION: "1.44"
+    # File provider (not docker) — Docker Engine 29 rejects Traefik's pinned legacy
+    # API version (1.24), and Traefik doesn't need the socket for static routing.
     command:
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
@@ -26,8 +24,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_acme:/acme
+      - ./infra/traefik/dynamic:/etc/traefik/dynamic:ro
     networks: [edge]
 
   # ── Data services ──
@@ -111,14 +109,7 @@ services:
         condition: service_started
       migrate:
         condition: service_completed_successfully
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.api.rule=Host(`${API_DOMAIN}`)
-      - traefik.http.routers.api.entrypoints=websecure
-      - traefik.http.routers.api.tls.certresolver=le
-      - traefik.http.services.api.loadbalancer.server.port=3001
-      # Socket.IO needs sticky sessions once api scales beyond one replica.
-      - traefik.http.services.api.loadbalancer.sticky.cookie=true
+    # Routing is defined in infra/traefik/dynamic/dynamic.yml (file provider).
     networks: [edge, internal]
 
   web:
@@ -129,12 +120,6 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.web.rule=Host(`${WEB_DOMAIN}`) || Host(`www.${WEB_DOMAIN}`)
-      - traefik.http.routers.web.entrypoints=websecure
-      - traefik.http.routers.web.tls.certresolver=le
-      - traefik.http.services.web.loadbalancer.server.port=3000
     networks: [edge]
 
   admin:
@@ -145,12 +130,6 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: unless-stopped
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.admin.rule=Host(`${ADMIN_DOMAIN}`)
-      - traefik.http.routers.admin.entrypoints=websecure
-      - traefik.http.routers.admin.tls.certresolver=le
-      - traefik.http.services.admin.loadbalancer.server.port=3002
     networks: [edge]
 
 networks:

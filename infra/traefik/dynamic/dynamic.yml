@@ -1,0 +1,43 @@
+# Traefik dynamic config (file provider). Routes the three hostnames to the app
+# containers by their Docker-network DNS names. Used instead of the docker provider
+# because Docker Engine 29 rejects the legacy API version Traefik's docker client
+# pins (1.24 < min 1.40). This also means Traefik needs no access to the Docker socket.
+#
+# Hostnames match the *_DOMAIN values in .env (sindbad.app / admin / api).
+http:
+  routers:
+    web:
+      rule: "Host(`sindbad.app`) || Host(`www.sindbad.app`)"
+      entryPoints: [websecure]
+      service: web
+      tls:
+        certResolver: le
+    admin:
+      rule: "Host(`admin.sindbad.app`)"
+      entryPoints: [websecure]
+      service: admin
+      tls:
+        certResolver: le
+    api:
+      rule: "Host(`api.sindbad.app`)"
+      entryPoints: [websecure]
+      service: api
+      tls:
+        certResolver: le
+
+  services:
+    web:
+      loadBalancer:
+        servers:
+          - url: "http://web:3000"
+    admin:
+      loadBalancer:
+        servers:
+          - url: "http://admin:3002"
+    api:
+      loadBalancer:
+        # Sticky sessions keep Socket.IO on one replica once the API scales out.
+        sticky:
+          cookie: {}
+        servers:
+          - url: "http://api:3001"

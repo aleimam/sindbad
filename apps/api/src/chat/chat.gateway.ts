@@ -1,15 +1,11 @@
 import { Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
-  OnGatewayInit,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
-import { createAdapter } from '@socket.io/redis-adapter';
-import Redis from 'ioredis';
 import { TokenService } from '../auth/token.service';
 import { AccountsService } from '../accounts/accounts.service';
 
@@ -18,13 +14,12 @@ import { AccountsService } from '../accounts/accounts.service';
  * message.new / message.updated / thread.read / thread.delivered.
  * Auth: `io(url, { auth: { token: <access JWT> } })`.
  *
- * When REDIS_URL is set, a Redis adapter fans broadcasts across every API
- * instance so message delivery scales horizontally. Presence (`online`) stays
- * per-node — correct for the single-box deployment; a Redis-backed presence set
- * would be the next step for a multi-node cluster.
+ * Horizontal scale-out uses the Redis Socket.IO adapter, configured at bootstrap
+ * (main.ts → RedisIoAdapter) when REDIS_URL is set. Presence (`online`) stays
+ * per-node — correct for the single-box deployment.
  */
 @WebSocketGateway({ cors: { origin: true, credentials: true }, namespace: '/chat' })
-export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(ChatGateway.name);
   private readonly online = new Map<string, number>(); // accountId → connection count
 
@@ -34,26 +29,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   constructor(
     private readonly tokens: TokenService,
     private readonly accounts: AccountsService,
-    private readonly config: ConfigService,
   ) {}
-
-  afterInit(server: Server) {
-    const url = this.config.get<string>('redisUrl');
-    if (!url) {
-      this.logger.log('Chat gateway running single-node (no REDIS_URL).');
-      return;
-    }
-    try {
-      const pub = new Redis(url, { lazyConnect: false, maxRetriesPerRequest: null });
-      const sub = pub.duplicate();
-      pub.on('error', (e) => this.logger.warn(`Redis pub error: ${e.message}`));
-      sub.on('error', (e) => this.logger.warn(`Redis sub error: ${e.message}`));
-      server.adapter(createAdapter(pub, sub));
-      this.logger.log('Chat gateway using Redis adapter (horizontal scale enabled).');
-    } catch (err) {
-      this.logger.warn(`Redis adapter init failed; staying single-node: ${(err as Error).message}`);
-    }
-  }
 
   async handleConnection(client: Socket) {
     try {

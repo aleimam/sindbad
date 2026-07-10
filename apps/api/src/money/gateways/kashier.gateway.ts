@@ -56,7 +56,8 @@ export class KashierGateway implements PaymentGateway {
 
   verifyWebhook(rawBody: string, headers: Record<string, string | undefined>): WebhookVerification {
     try {
-      const provided = headers['x-kashier-signature'] ?? headers['x-kashier-signature'.toLowerCase()];
+      // Express lower-cases header keys.
+      const provided = headers['x-kashier-signature'];
       const body = JSON.parse(rawBody) as {
         data?: {
           merchantOrderId?: string;

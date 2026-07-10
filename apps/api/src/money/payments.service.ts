@@ -105,13 +105,17 @@ export class PaymentsService {
     }
 
     if (v.status !== 'PAID') {
-      await this.prisma.depositRequest.update({
-        where: { id: deposit.id, status: 'REQUESTED' } as never,
+      // updateMany (not update): a status-guarded, race-safe transition that never
+      // throws P2025 if a concurrent webhook already moved the deposit.
+      const rejected = await this.prisma.depositRequest.updateMany({
+        where: { id: deposit.id, status: 'REQUESTED' },
         data: { status: 'REJECTED', gatewayRef: v.gatewayRef ?? deposit.gatewayRef, decidedAt: new Date() },
       });
-      void this.notifications.notify(deposit.accountId, 'DEAL', 'Your card deposit did not complete', {
-        depositId: deposit.id,
-      });
+      if (rejected.count > 0) {
+        void this.notifications.notify(deposit.accountId, 'DEAL', 'Your card deposit did not complete', {
+          depositId: deposit.id,
+        });
+      }
       return { ok: true };
     }
 

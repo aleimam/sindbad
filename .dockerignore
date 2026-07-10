@@ -1,0 +1,15 @@
+# Build fresh inside the image — never ship host artifacts.
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/coverage
+.git
+.github
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
+**/.DS_Store
+docs
+*.md

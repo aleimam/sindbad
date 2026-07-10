@@ -1,0 +1,34 @@
+name: Deploy
+
+# Deploys to the VPS after CI passes on main. Manual runs allowed via the
+# "Run workflow" button. Requires repo secrets:
+#   DEPLOY_HOST      — VPS IP or hostname
+#   DEPLOY_USER      — deploy user (e.g. "deploy")
+#   DEPLOY_SSH_KEY   — private key authorised on the VPS
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Only when the triggering CI run succeeded (or on a manual dispatch).
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/sindbad
+            ./scripts/deploy.sh

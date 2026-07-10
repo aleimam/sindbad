@@ -10,6 +10,7 @@ import { fmtUsd, usdToCents } from '@/lib/format';
 import { localizedName, useApiGet } from '@/lib/use-api';
 import { useMe } from '@/lib/use-me';
 import { DealReviews } from '@/components/deal-reviews';
+import { ReportButton } from '@/components/report-dialog';
 import type { Deal } from '@/lib/types';
 
 const BOX_STEPS = ['ORDERED', 'SHIPPED', 'DELIVERED_TO_TRAVELER', 'RECEIVED_BY_TRAVELER'] as const;
@@ -265,6 +266,10 @@ export default function DealDetailPage({ params }: { params: Promise<{ id: strin
             </Button>
           </div>
         ) : null}
+
+        <div className="flex justify-center pt-1">
+          <ReportButton targetType="DEAL" targetId={deal.id} />
+        </div>
       </div>
     </div>
   );

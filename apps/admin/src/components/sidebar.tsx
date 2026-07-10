@@ -45,9 +45,17 @@ const groups: Array<{
       { label: 'FX rates', href: '/fx' },
     ],
   },
-  { label: 'Support', Icon: LifeBuoy },
+  {
+    label: 'Support',
+    Icon: LifeBuoy,
+    children: [{ label: 'Complaints', href: '/complaints' }],
+  },
   { label: 'Pricing & Fees', Icon: Percent },
-  { label: 'Catalogs & Settings', Icon: Settings },
+  {
+    label: 'Catalogs & Settings',
+    Icon: Settings,
+    children: [{ label: 'Static pages', href: '/pages' }],
+  },
   { label: 'Administration', Icon: ShieldCheck },
 ];
 

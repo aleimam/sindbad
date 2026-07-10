@@ -57,6 +57,7 @@ model User {
   phoneVerifiedAt DateTime?
   passwordHash    String
   status          UserStatus @default(ACTIVE)
+  holdUntil       DateTime? // membership hold (moderation) — blocks activity until it passes
   isStaff         Boolean    @default(false)
   isSuperAdmin    Boolean    @default(false)
   totpSecret      String? // admin 2FA
@@ -518,6 +519,81 @@ model SystemSetting {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+// ── Complaints & moderation (docs/02 §10) ──
+
+enum ComplaintTarget {
+  REQUEST
+  DEAL
+  CHAT
+  REVIEW
+}
+
+enum ComplaintStatus {
+  NEW
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+model Complaint {
+  id                String          @id @default(cuid())
+  raisedByAccountId String
+  targetType        ComplaintTarget
+  targetId          String
+  topic             String
+  details           String
+  status            ComplaintStatus @default(NEW)
+  decision          String?
+  assignedUserId    String?
+  decidedByUserId   String?
+  decidedAt         DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  actions ModerationAction[]
+
+  @@index([status])
+  @@index([raisedByAccountId])
+}
+
+enum ModerationKind {
+  DEDUCT_CREDIBILITY
+  HOLD_MEMBERSHIP
+  BLOCK
+}
+
+/// Staff punishment applied to an account (spec Complaints).
+model ModerationAction {
+  id              String         @id @default(cuid())
+  complaintId     String?
+  accountId       String
+  kind            ModerationKind
+  points          Int? // for DEDUCT_CREDIBILITY
+  holdUntil       DateTime? // for HOLD_MEMBERSHIP
+  reason          String
+  byUserId        String
+  createdAt       DateTime       @default(now())
+
+  complaint Complaint? @relation(fields: [complaintId], references: [id], onDelete: SetNull)
+
+  @@index([accountId])
+}
+
+// ── Static pages CMS (docs/02 §3) ──
+
+model StaticPage {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  titleEn     String
+  titleAr     String
+  bodyEn      String
+  bodyAr      String
+  published   Boolean  @default(false)
+  systemPage  Boolean  @default(false) // seeded core pages can't be deleted
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
 }
 
 // ── Deposits / withdrawals / transfers / FX (docs/02 §4) ──

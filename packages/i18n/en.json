@@ -13,7 +13,8 @@
     "postShipment": "Post a shipment",
     "postShipmentHint": "Shop from abroad",
     "browse": "Browse",
-    "request": "Request"
+    "request": "Request",
+    "cancel": "Cancel"
   },
   "home": {
     "greeting": "Welcome",
@@ -312,5 +313,43 @@
     "verificationDocs": "Verification documents",
     "verificationHint": "Upload your flight details and passport photo — visible only to you and our team."
   },
-  "system": { "apiStatus": "API", "online": "online", "offline": "offline" }
+  "system": { "apiStatus": "API", "online": "online", "offline": "offline" },
+  "support": {
+    "title": "Help & support",
+    "myComplaints": "My complaints",
+    "report": "Report a problem",
+    "reportTitle": "Report a problem",
+    "topic": "Topic",
+    "topicPlaceholder": "Briefly, what's wrong?",
+    "details": "Details",
+    "detailsPlaceholder": "Tell us what happened.",
+    "submit": "Submit report",
+    "submitting": "Submitting…",
+    "submitted": "Report submitted — our team will review it.",
+    "empty": "You haven't raised any complaints.",
+    "status": {
+      "NEW": "New",
+      "UNDER_REVIEW": "Under review",
+      "RESOLVED": "Resolved",
+      "DISMISSED": "Dismissed"
+    },
+    "target": {
+      "REQUEST": "Request",
+      "DEAL": "Deal",
+      "CHAT": "Chat",
+      "REVIEW": "Review"
+    }
+  },
+  "analytics": {
+    "title": "My performance",
+    "trips": "Trips posted",
+    "shipments": "Shipments posted",
+    "dealsAsTraveler": "Deals as traveler",
+    "dealsAsShopper": "Deals as shopper",
+    "completed": "Completed deals"
+  },
+  "legal": {
+    "title": "Legal & guides",
+    "empty": "No pages published yet."
+  }
 }

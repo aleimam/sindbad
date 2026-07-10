@@ -13,7 +13,8 @@
     "postShipment": "أضف شحنة",
     "postShipmentHint": "تسوّق من الخارج",
     "browse": "تصفح",
-    "request": "طلب"
+    "request": "طلب",
+    "cancel": "إلغاء"
   },
   "home": {
     "greeting": "أهلاً بك",
@@ -312,5 +313,43 @@
     "verificationDocs": "مستندات التحقق",
     "verificationHint": "ارفع تفاصيل الرحلة وصورة جواز السفر — تظهر لك ولفريقنا فقط."
   },
-  "system": { "apiStatus": "الخادم", "online": "متصل", "offline": "غير متصل" }
+  "system": { "apiStatus": "الخادم", "online": "متصل", "offline": "غير متصل" },
+  "support": {
+    "title": "المساعدة والدعم",
+    "myComplaints": "شكاواي",
+    "report": "الإبلاغ عن مشكلة",
+    "reportTitle": "الإبلاغ عن مشكلة",
+    "topic": "الموضوع",
+    "topicPlaceholder": "باختصار، ما المشكلة؟",
+    "details": "التفاصيل",
+    "detailsPlaceholder": "أخبرنا بما حدث.",
+    "submit": "إرسال البلاغ",
+    "submitting": "جارٍ الإرسال…",
+    "submitted": "تم إرسال البلاغ — سيراجعه فريقنا.",
+    "empty": "لم تقدّم أي شكاوى.",
+    "status": {
+      "NEW": "جديدة",
+      "UNDER_REVIEW": "قيد المراجعة",
+      "RESOLVED": "تم حلها",
+      "DISMISSED": "مرفوضة"
+    },
+    "target": {
+      "REQUEST": "طلب",
+      "DEAL": "صفقة",
+      "CHAT": "محادثة",
+      "REVIEW": "تقييم"
+    }
+  },
+  "analytics": {
+    "title": "أدائي",
+    "trips": "الرحلات المنشورة",
+    "shipments": "الشحنات المنشورة",
+    "dealsAsTraveler": "الصفقات كمسافر",
+    "dealsAsShopper": "الصفقات كمتسوق",
+    "completed": "الصفقات المكتملة"
+  },
+  "legal": {
+    "title": "القانون والأدلة",
+    "empty": "لا توجد صفحات منشورة بعد."
+  }
 }

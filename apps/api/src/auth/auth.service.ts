@@ -115,8 +115,11 @@ export class AuthService {
     });
     if (!user || !(await this.passwords.verify(user.passwordHash, password)))
       throw new UnauthorizedException('Invalid credentials');
-    if (user.status === 'BLOCKED')
-      throw new ForbiddenException('Account blocked'); // ongoing-deals-only access lands with the deals module
+    // A membership hold fully suspends login until it lapses.
+    if (user.holdUntil && user.holdUntil > new Date())
+      throw new ForbiddenException('Account temporarily suspended');
+    // BLOCKED users may still authenticate, but AccountAccessGuard restricts
+    // them to ongoing-deals-only access so in-flight escrow can settle.
     return user;
   }
 

@@ -95,6 +95,24 @@ export default function AccountPage() {
         </Button>
       </Link>
 
+      <Link href="/account/analytics" className="block">
+        <Button variant="ghost" className="w-full">
+          {t('analytics.title')}
+        </Button>
+      </Link>
+
+      <Link href="/support" className="block">
+        <Button variant="ghost" className="w-full">
+          {t('support.myComplaints')}
+        </Button>
+      </Link>
+
+      <Link href="/pages" className="block">
+        <Button variant="ghost" className="w-full">
+          {t('legal.title')}
+        </Button>
+      </Link>
+
       <Button variant="secondary" onClick={logout} className="w-full">
         {t('auth.logout')}
       </Button>

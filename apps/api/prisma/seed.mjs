@@ -129,6 +129,33 @@ async function main() {
     console.log(`Seeded ${CATEGORIES.length} categories.`);
   }
 
+  // Core static pages (spec Static Pages) — seeded as systemPage so they can be
+  // edited/unpublished but never deleted. Bodies are Markdown placeholders.
+  const STATIC_PAGES = [
+    ['terms', 'Terms of Service', 'شروط الخدمة'],
+    ['privacy', 'Privacy Policy', 'سياسة الخصوصية'],
+    ['about', 'About Sindbad', 'عن سندباد'],
+    ['contact', 'Contact Us', 'اتصل بنا'],
+    ['guide', 'How Sindbad Works', 'كيف يعمل سندباد'],
+    ['faq', 'Frequently Asked Questions', 'الأسئلة الشائعة'],
+  ];
+  for (const [slug, titleEn, titleAr] of STATIC_PAGES) {
+    await prisma.staticPage.upsert({
+      where: { slug },
+      create: {
+        slug,
+        titleEn,
+        titleAr,
+        bodyEn: `# ${titleEn}\n\n_Content coming soon._`,
+        bodyAr: `# ${titleAr}\n\n_المحتوى قريباً._`,
+        published: false,
+        systemPage: true,
+      },
+      update: {},
+    });
+  }
+  console.log(`Seeded ${STATIC_PAGES.length} static pages (unpublished).`);
+
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     console.log(`Super admin already exists: ${email}`);

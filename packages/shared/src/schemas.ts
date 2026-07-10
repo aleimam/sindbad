@@ -359,3 +359,63 @@ export const categoryPreferencesSchema = z.object({
   ),
 });
 export type CategoryPreferencesInput = z.infer<typeof categoryPreferencesSchema>;
+
+// ── Complaints & moderation ──
+
+export const raiseComplaintSchema = z.object({
+  targetType: z.enum(['REQUEST', 'DEAL', 'CHAT', 'REVIEW']),
+  targetId: z.string().min(1),
+  topic: z.string().min(3).max(120),
+  details: z.string().min(1).max(4000),
+});
+export type RaiseComplaintInput = z.infer<typeof raiseComplaintSchema>;
+
+export const complaintStatusSchema = z.object({
+  status: z.enum(['UNDER_REVIEW', 'RESOLVED', 'DISMISSED']),
+  decision: z.string().max(4000).optional(),
+});
+export type ComplaintStatusInput = z.infer<typeof complaintStatusSchema>;
+
+export const moderationActionSchema = z
+  .object({
+    accountId: z.string().min(1),
+    complaintId: z.string().min(1).optional(),
+    kind: z.enum(['DEDUCT_CREDIBILITY', 'HOLD_MEMBERSHIP', 'BLOCK']),
+    points: z.number().int().positive().optional(),
+    holdDays: z.number().int().positive().max(3650).optional(),
+    reason: z.string().min(3).max(2000),
+  })
+  .refine((v) => v.kind !== 'DEDUCT_CREDIBILITY' || v.points != null, {
+    message: 'points is required to deduct credibility',
+    path: ['points'],
+  })
+  .refine((v) => v.kind !== 'HOLD_MEMBERSHIP' || v.holdDays != null, {
+    message: 'holdDays is required to hold membership',
+    path: ['holdDays'],
+  });
+export type ModerationActionInput = z.infer<typeof moderationActionSchema>;
+
+// ── Static pages CMS ──
+
+export const createPageSchema = z.object({
+  slug: z
+    .string()
+    .min(2)
+    .max(60)
+    .regex(/^[a-z0-9-]+$/, 'lowercase letters, numbers, and dashes only'),
+  titleEn: z.string().min(1).max(160),
+  titleAr: z.string().min(1).max(160),
+  bodyEn: z.string().min(1),
+  bodyAr: z.string().min(1),
+  published: z.boolean().default(false),
+});
+export type CreatePageInput = z.infer<typeof createPageSchema>;
+
+export const updatePageSchema = z.object({
+  titleEn: z.string().min(1).max(160).optional(),
+  titleAr: z.string().min(1).max(160).optional(),
+  bodyEn: z.string().min(1).optional(),
+  bodyAr: z.string().min(1).optional(),
+  published: z.boolean().optional(),
+});
+export type UpdatePageInput = z.infer<typeof updatePageSchema>;

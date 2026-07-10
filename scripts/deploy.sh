@@ -12,8 +12,17 @@ echo "→ Fetching latest main…"
 git fetch --all --prune
 git reset --hard origin/main
 
-echo "→ Building images & starting services…"
-$COMPOSE up -d --build
+echo "→ Building images…"
+$COMPOSE build
+
+# Apply migrations + seed as an explicit step BEFORE (re)starting services.
+# `up -d` alone does NOT re-run an already-exited one-shot, so pending migrations
+# would silently not apply on re-deploys — `run --rm` guarantees a fresh run.
+echo "→ Applying database migrations + seed…"
+$COMPOSE run --rm migrate
+
+echo "→ Starting / refreshing services…"
+$COMPOSE up -d
 
 echo "→ Waiting for the API to report healthy…"
 for i in $(seq 1 30); do

@@ -10,6 +10,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
+  // Behind Traefik (and later Cloudflare), trust the proxy hop(s) so req.ip is the
+  // real client IP — used by rate limiting. Bump TRUST_PROXY_HOPS to 2 once
+  // Cloudflare proxying (orange cloud) is enabled.
+  const hops = parseInt(process.env.TRUST_PROXY_HOPS ?? '1', 10);
+  app.getHttpAdapter().getInstance().set('trust proxy', hops);
+
   app.setGlobalPrefix('api');
   app.use(cookieParser());
   app.enableCors({

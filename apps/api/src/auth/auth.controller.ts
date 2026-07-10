@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
@@ -38,13 +39,17 @@ export class AuthController {
     return this.config.get<string>('env') === 'production';
   }
 
+  // Tight limits on OTP-issuing + credential endpoints: brute-force and, once SMS
+  // is live, SMS-bombing / cost-abuse protection (per client IP).
   @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Register with email or phone + password; sends a verification OTP' })
   register(@Body(new ZodValidationPipe(registerSchema)) body: RegisterInput) {
     return this.auth.register(body);
   }
 
   @Post('verify-otp')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(200)
   @ApiOperation({ summary: 'Verify the registration OTP; returns tokens (auto-login)' })
   async verifyOtp(
@@ -58,6 +63,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(200)
   @ApiOperation({ summary: 'Login with email or phone + password' })
   async login(
@@ -112,6 +118,7 @@ export class AuthController {
   }
 
   @Post('password/forgot')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(200)
   @ApiOperation({ summary: 'Start a password reset (OTP to email or phone)' })
   forgot(@Body(new ZodValidationPipe(forgotPasswordSchema)) body: ForgotPasswordInput) {
@@ -119,6 +126,7 @@ export class AuthController {
   }
 
   @Post('password/reset')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(200)
   @ApiOperation({ summary: 'Complete a password reset; revokes all sessions' })
   reset(@Body(new ZodValidationPipe(resetPasswordSchema)) body: ResetPasswordInput) {

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import configuration from './config/configuration';
 import { PrismaModule } from './prisma/prisma.module';
 import { MessagingModule } from './messaging/messaging.module';
@@ -25,6 +27,10 @@ import { MetaModule } from './meta/meta.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     ScheduleModule.forRoot(),
+    // Global baseline rate limit (per client IP). Auth endpoints tighten this
+    // further with @Throttle. Requires `trust proxy` (set in main.ts) so the
+    // client IP — not Traefik's — is used behind the reverse proxy.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     PrismaModule,
     MessagingModule,
     AuthModule,
@@ -44,5 +50,6 @@ import { MetaModule } from './meta/meta.module';
     HealthModule,
     MetaModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

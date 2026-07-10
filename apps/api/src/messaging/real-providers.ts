@@ -40,6 +40,63 @@ export class SmtpEmailProvider implements EmailProvider {
   }
 }
 
+interface SmsMisrConfig {
+  username: string;
+  password: string;
+  sender: string;
+  environment: string; // "1" live, "2" test
+}
+
+/**
+ * SMS via SMS Misr (Egypt). Uses the v2 send API; the recipient is E.164 without
+ * the leading "+". Note: the sender name must be NTRA-approved on the account.
+ * Success is code "1901"; anything else is surfaced as an error.
+ */
+@Injectable()
+export class SmsMisrProvider implements SmsProvider {
+  private readonly logger = new Logger('SmsMisr');
+
+  constructor(private readonly config: SmsMisrConfig) {}
+
+  async sendSms(to: string, body: string): Promise<void> {
+    const mobile = to.replace(/[^\d]/g, ''); // e.g. +20100… → 20100…
+    const params = new URLSearchParams({
+      environment: this.config.environment,
+      username: this.config.username,
+      password: this.config.password,
+      sender: this.config.sender,
+      mobile,
+      language: '1', // OTP/notification copy is Latin; 1 = English GSM
+      message: body,
+    });
+    const res = await fetch('https://smsmisr.com/api/SMS/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params,
+    });
+    const data = (await res.json().catch(() => ({}))) as { code?: string | number };
+    if (!res.ok || String(data.code) !== '1901') {
+      this.logger.error(`SMS Misr send to ${mobile} failed: ${JSON.stringify(data)}`);
+      throw new Error(`SMS Misr failed: ${data.code ?? res.status}`);
+    }
+  }
+}
+
+/** Routes Egyptian numbers (+20) to SMS Misr and everything else to the fallback. */
+@Injectable()
+export class RoutingSmsProvider implements SmsProvider {
+  constructor(
+    private readonly egypt: SmsProvider,
+    private readonly international: SmsProvider,
+  ) {}
+
+  async sendSms(to: string, body: string): Promise<void> {
+    const normalized = to.replace(/\s/g, '');
+    const provider = normalized.startsWith('+20') ? this.egypt : this.international;
+    await provider.sendSms(to, body);
+  }
+}
+
 interface TwilioConfig {
   sid: string;
   token: string;

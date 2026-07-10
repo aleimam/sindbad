@@ -27,10 +27,18 @@ export default () => ({
     pass: process.env.SMTP_PASS ?? '',
     from: process.env.SMTP_FROM ?? 'Sindbad <no-reply@sindbad.app>',
   },
-  // SMS — Twilio (international). When sid/token are empty the dev logger is used.
+  // SMS — SMS Misr routes Egyptian (+20) numbers, Twilio the rest. When both are
+  // set the router splits by country; otherwise whichever is configured sends all;
+  // if neither, the dev logger is used.
   twilio: {
     sid: process.env.TWILIO_ACCOUNT_SID ?? '',
     token: process.env.TWILIO_AUTH_TOKEN ?? '',
     from: process.env.TWILIO_FROM ?? '', // a Twilio number or Messaging Service SID
+  },
+  smsMisr: {
+    username: process.env.SMSMISR_USERNAME ?? '',
+    password: process.env.SMSMISR_PASSWORD ?? '',
+    sender: process.env.SMSMISR_SENDER ?? '', // NTRA-approved sender name
+    environment: process.env.SMSMISR_ENVIRONMENT ?? '1', // 1 = live, 2 = test
   },
 });

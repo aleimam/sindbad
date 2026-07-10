@@ -130,10 +130,12 @@ curl -fsS https://api.sindbad.app/api/docs-json | head # OpenAPI served
 
 ## 9. Continuous deploys (CI/CD)
 
-`.github/workflows/deploy.yml` runs after **CI** passes on `main` (or via manual
-dispatch) and SSHes in to run `scripts/deploy.sh` (git pull → rebuild → migrate → prune).
+The `deploy` job in `.github/workflows/ci.yml` runs after the `build` job passes on
+`main` (`needs: build`; also on manual dispatch) and SSHes in to run
+`scripts/deploy.sh` (git pull → rebuild → migrate → prune). It's a single-workflow
+job rather than a cross-workflow `workflow_run` trigger, which proved unreliable.
 
-Add these **repository secrets** (Settings → Secrets → Actions):
+Add these **Repository secrets** (Settings → Secrets and variables → Actions):
 
 | Secret | Value |
 |---|---|

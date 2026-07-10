@@ -3,6 +3,7 @@
 // Configure with SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD env vars.
 import { PrismaClient } from '@prisma/client';
 import { hash, Algorithm } from '@node-rs/argon2';
+import { STATIC_PAGES } from './pages-content.mjs';
 
 const prisma = new PrismaClient();
 
@@ -130,31 +131,25 @@ async function main() {
   }
 
   // Core static pages (spec Static Pages) — seeded as systemPage so they can be
-  // edited/unpublished but never deleted. Bodies are Markdown placeholders.
-  const STATIC_PAGES = [
-    ['terms', 'Terms of Service', 'شروط الخدمة'],
-    ['privacy', 'Privacy Policy', 'سياسة الخصوصية'],
-    ['about', 'About Sindbad', 'عن سندباد'],
-    ['contact', 'Contact Us', 'اتصل بنا'],
-    ['guide', 'How Sindbad Works', 'كيف يعمل سندباد'],
-    ['faq', 'Frequently Asked Questions', 'الأسئلة الشائعة'],
-  ];
-  for (const [slug, titleEn, titleAr] of STATIC_PAGES) {
+  // edited/unpublished but never deleted. Real EN/AR content lives in
+  // pages-content.mjs. `update: {}` keeps re-seeds from clobbering admin edits;
+  // to push content to an existing DB use `node prisma/apply-pages.mjs`.
+  for (const p of STATIC_PAGES) {
     await prisma.staticPage.upsert({
-      where: { slug },
+      where: { slug: p.slug },
       create: {
-        slug,
-        titleEn,
-        titleAr,
-        bodyEn: `# ${titleEn}\n\n_Content coming soon._`,
-        bodyAr: `# ${titleAr}\n\n_المحتوى قريباً._`,
-        published: false,
+        slug: p.slug,
+        titleEn: p.titleEn,
+        titleAr: p.titleAr,
+        bodyEn: p.bodyEn,
+        bodyAr: p.bodyAr,
+        published: p.publish,
         systemPage: true,
       },
       update: {},
     });
   }
-  console.log(`Seeded ${STATIC_PAGES.length} static pages (unpublished).`);
+  console.log(`Seeded ${STATIC_PAGES.length} static pages.`);
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {

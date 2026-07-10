@@ -7,6 +7,10 @@ services:
   traefik:
     image: traefik:v3.1
     restart: unless-stopped
+    # Docker Engine 29 dropped the legacy API version Traefik's client defaults to
+    # (1.24). Pin to a version within the daemon's supported range (1.40–1.55).
+    environment:
+      DOCKER_API_VERSION: "1.44"
     command:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false

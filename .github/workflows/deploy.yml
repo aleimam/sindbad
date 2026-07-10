@@ -4,7 +4,8 @@ name: Deploy
 # "Run workflow" button. Requires repo secrets:
 #   DEPLOY_HOST      — VPS IP or hostname
 #   DEPLOY_USER      — deploy user (e.g. "deploy")
-#   DEPLOY_SSH_KEY   — private key authorised on the VPS
+#   DEPLOY_SSH_KEY   — private key authorised on the VPS (dedicated CI key)
+# Until DEPLOY_HOST is set the job skips cleanly (no red X on every push).
 on:
   workflow_run:
     workflows: [CI]
@@ -21,13 +22,27 @@ jobs:
     # Only when the triggering CI run succeeded (or on a manual dispatch).
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
     steps:
+      - name: Check deploy is configured
+        id: cfg
+        run: |
+          if [ -z "$DEPLOY_HOST" ]; then
+            echo "Deploy secrets not set — skipping. Add DEPLOY_HOST/USER/SSH_KEY to enable."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy over SSH
+        if: steps.cfg.outputs.ready == 'true'
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 25m
           script: |
             set -e
             cd /opt/sindbad

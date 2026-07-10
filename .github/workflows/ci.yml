@@ -42,12 +42,14 @@ jobs:
       cancel-in-progress: false
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY_B64: ${{ secrets.DEPLOY_SSH_KEY_B64 }}
     steps:
       - name: Check deploy is configured
         id: cfg
         run: |
-          if [ -z "$DEPLOY_HOST" ]; then
-            echo "Deploy secrets not set — skipping. Add DEPLOY_HOST/USER/SSH_KEY to enable."
+          if [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_SSH_KEY_B64" ]; then
+            echo "Deploy secrets not fully set — skipping. Need DEPLOY_HOST + DEPLOY_SSH_KEY_B64."
             echo "ready=false" >> "$GITHUB_OUTPUT"
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
@@ -55,13 +57,13 @@ jobs:
 
       - name: Deploy over SSH
         if: steps.cfg.outputs.ready == 'true'
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          command_timeout: 25m
-          script: |
-            set -e
-            cd /opt/sindbad
-            ./scripts/deploy.sh
+        run: |
+          # Key is stored base64-encoded (single line) so paste can't flatten it.
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_SSH_KEY_B64" | base64 -d > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=25 \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            'cd /opt/sindbad && ./scripts/deploy.sh'

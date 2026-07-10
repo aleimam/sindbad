@@ -2,10 +2,10 @@
 
 import { use, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { ArrowRight, Heart, Star, UserX } from 'lucide-react';
+import { ArrowRight, Heart, MessageCircle, Star, UserX } from 'lucide-react';
 import { Avatar, Button, Card, TierBadge, cn } from '@sindbad/ui';
-import { Link } from '@/i18n/navigation';
-import { api } from '@/lib/api';
+import { Link, useRouter } from '@/i18n/navigation';
+import { api, ApiError } from '@/lib/api';
 import { localizedName } from '@/lib/use-api';
 import { useApiGet } from '@/lib/use-api';
 import { useMe } from '@/lib/use-me';
@@ -38,11 +38,25 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
   const t = useTranslations();
   const locale = useLocale();
   const { me } = useMe();
+  const router = useRouter();
   const { data: profile } = useApiGet<PublicProfile>(`/accounts/${id}/profile`);
   const [busy, setBusy] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
 
   const myAccountId = me?.memberships[0]?.account.id;
   const isSelf = myAccountId === id;
+
+  async function message() {
+    setBusy(true);
+    setChatError(null);
+    try {
+      const thread = await api<{ id: string }>('/chat/threads', { body: { accountId: id } });
+      router.push(`/chat/${thread.id}`);
+    } catch (err) {
+      setChatError(err instanceof ApiError ? err.message : t('auth.genericError'));
+      setBusy(false);
+    }
+  }
 
   async function act(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -68,7 +82,10 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
           {new Date(profile.createdAt).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
         </div>
         {me && !isSelf ? (
-          <div className="flex gap-2 pt-1">
+          <div className="flex flex-wrap justify-center gap-2 pt-1">
+            <Button size="sm" disabled={busy} onClick={message}>
+              <MessageCircle className="h-3.5 w-3.5" /> {t('profile.message')}
+            </Button>
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(() => api(`/favorites/${id}`, { body: {} }))}>
               <Heart className="h-3.5 w-3.5" /> {t('profile.favorite')}
             </Button>
@@ -86,6 +103,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ id: st
             </Button>
           </div>
         ) : null}
+        {chatError ? <p className="text-xs text-error">{chatError}</p> : null}
       </Card>
 
       {profile.activeMissions.length ? (

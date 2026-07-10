@@ -7,6 +7,7 @@ import { Avatar } from '@sindbad/ui';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { useMe } from '@/lib/use-me';
 import { useApiGet } from '@/lib/use-api';
+import { useChatSocket } from '@/lib/use-chat-socket';
 
 export function Header() {
   const t = useTranslations();
@@ -16,6 +17,10 @@ export function Header() {
   const { resolvedTheme, setTheme } = useTheme();
   const { me } = useMe();
   const { data: unread } = useApiGet<{ count: number }>(me ? '/notifications/unread-count' : null);
+  const { data: chatUnread, refresh: refreshChat } = useApiGet<{ count: number }>(
+    me ? '/chat/unread-count' : null,
+  );
+  useChatSocket({ 'message.new': refreshChat, 'thread.read': refreshChat });
 
   const otherLocale = locale === 'ar' ? 'en' : 'ar';
   const displayName = me?.memberships[0]?.account.displayName ?? me?.email ?? me?.phone ?? '';
@@ -62,13 +67,14 @@ export function Header() {
                 </span>
               ) : null}
             </Link>
-            <button
-              type="button"
-              aria-label="Chat"
-              className="relative text-slate-dark dark:text-offwhite"
-            >
+            <Link href="/chat" aria-label="Chat" className="relative text-slate-dark dark:text-offwhite">
               <MessageCircle className="h-5 w-5" />
-            </button>
+              {chatUnread && chatUnread.count > 0 ? (
+                <span className="absolute -end-1.5 -top-1.5 rounded-pill bg-royal px-1 text-[9px] font-semibold leading-3.5 text-white">
+                  {chatUnread.count > 9 ? '9+' : chatUnread.count}
+                </span>
+              ) : null}
+            </Link>
             <Link href="/account" aria-label={t('account.title')}>
               <Avatar name={displayName || 'S U'} className="h-7 w-7" />
             </Link>

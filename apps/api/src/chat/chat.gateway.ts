@@ -34,7 +34,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         (client.handshake.auth?.token as string | undefined) ??
         (client.handshake.headers.authorization?.startsWith('Bearer ')
           ? client.handshake.headers.authorization.slice(7)
-          : undefined);
+          : undefined) ??
+        this.tokenFromCookie(client.handshake.headers.cookie);
       if (!token) throw new Error('no token');
       const payload = this.tokens.verifyAccessToken(token);
       const accountId = await this.accounts.getActingAccountId(payload.sub);
@@ -53,6 +54,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const next = (this.online.get(accountId) ?? 1) - 1;
     if (next <= 0) this.online.delete(accountId);
     else this.online.set(accountId, next);
+  }
+
+  /** Web clients authenticate the socket via the httpOnly access cookie. */
+  private tokenFromCookie(cookie?: string): string | undefined {
+    if (!cookie) return undefined;
+    const match = cookie.split(';').find((c) => c.trim().startsWith('sb_access='));
+    return match ? decodeURIComponent(match.split('=').slice(1).join('=')) : undefined;
   }
 
   isOnline(accountId: string): boolean {

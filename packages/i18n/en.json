@@ -230,6 +230,17 @@
       "FX_CONVERT": "Currency conversion"
     }
   },
+  "chat": {
+    "title": "Messages",
+    "empty": "No conversations yet — message a user from a deal or a match.",
+    "unsent": "Message removed",
+    "photo": "Photo",
+    "edited": "edited",
+    "messagePlaceholder": "Type a message…",
+    "replyingTo": "Replying to",
+    "editing": "Editing message",
+    "message": "Message"
+  },
   "verif": {
     "title": "Verification",
     "hint": "Verify details about yourself to earn credibility. Fees are charged from your wallet and are non-refundable.",
@@ -264,6 +275,7 @@
   },
   "profile": {
     "memberSince": "member since",
+    "message": "Message",
     "favorite": "Favorite",
     "follow": "Follow",
     "block": "Block",

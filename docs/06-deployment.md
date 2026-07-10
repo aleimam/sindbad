@@ -4,8 +4,10 @@ How to take Sindbad from an empty VPS to a live, TLS-secured production stack, a
 how continuous deploys work afterwards. Single-box topology; everything runs under
 one `docker compose` project.
 
-> **Status:** scaffolding complete and committed. The steps below are executed on
-> the VPS once its IP/access is available. Nothing here has run against a live box yet.
+> **Status:** LIVE in production (Hetzner CX33, Helsinki, 65.21.176.164) since
+> 2026-07-10. HTTPS via Let's Encrypt, nightly DB backups, and CI/CD auto-deploy
+> are active. Note: Traefik uses the **file provider** (`infra/traefik/dynamic/`),
+> not the docker provider — Docker Engine 29 rejects Traefik's legacy socket API.
 
 ---
 

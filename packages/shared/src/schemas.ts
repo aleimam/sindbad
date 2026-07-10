@@ -411,6 +411,15 @@ export const createPageSchema = z.object({
 });
 export type CreatePageInput = z.infer<typeof createPageSchema>;
 
+// ── Card deposits via payment gateway ──
+
+export const cardDepositSchema = z.object({
+  currency: z.enum(['USD', 'EGP']),
+  amountMinor: z.number().int().positive(),
+  provider: z.enum(['KASHIER', 'OPAY']),
+});
+export type CardDepositInput = z.infer<typeof cardDepositSchema>;
+
 export const updatePageSchema = z.object({
   titleEn: z.string().min(1).max(160).optional(),
   titleAr: z.string().min(1).max(160).optional(),

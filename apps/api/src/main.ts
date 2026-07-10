@@ -7,7 +7,9 @@ import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: capture the unparsed body so payment-gateway webhook signatures can
+  // be verified against the exact bytes the gateway sent.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
 
   // Behind Traefik (and later Cloudflare), trust the proxy hop(s) so req.ip is the

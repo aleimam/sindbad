@@ -41,4 +41,21 @@ export default () => ({
     sender: process.env.SMSMISR_SENDER ?? '', // NTRA-approved sender name
     environment: process.env.SMSMISR_ENVIRONMENT ?? '1', // 1 = live, 2 = test
   },
+  // Payment gateways for CARD deposits. Each activates when its keys are set.
+  // publicBaseUrl is where gateways redirect the user / POST webhooks back.
+  payments: {
+    publicApiUrl: process.env.NEXT_PUBLIC_API_URL ?? process.env.PUBLIC_API_URL ?? '',
+    webUrl: process.env.PUBLIC_WEB_URL ?? 'https://sindbad.app',
+    kashier: {
+      merchantId: process.env.KASHIER_MERCHANT_ID ?? '',
+      apiKey: process.env.KASHIER_API_KEY ?? '', // payment API key (used for the HPP hash + webhook HMAC)
+      mode: process.env.KASHIER_MODE ?? 'live', // 'live' | 'test'
+    },
+    opay: {
+      merchantId: process.env.OPAY_MERCHANT_ID ?? '',
+      publicKey: process.env.OPAY_PUBLIC_KEY ?? '',
+      secretKey: process.env.OPAY_SECRET_KEY ?? '', // used to sign requests + verify webhooks
+      baseUrl: process.env.OPAY_BASE_URL ?? 'https://api.opaycheckout.com',
+    },
+  },
 });

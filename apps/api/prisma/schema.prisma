@@ -601,28 +601,35 @@ model StaticPage {
 enum DepositMethod {
   INSTAPAY
   BANK_TRANSFER
-  // CARD / APPLE_PAY arrive with the gateway adapters (Kashier/OPay credentials)
+  CARD // hosted-checkout via a payment gateway (Kashier / OPay)
+}
+
+enum PaymentGatewayProvider {
+  KASHIER
+  OPAY
 }
 
 enum DepositStatus {
-  REQUESTED // transfer details + order number shown to the user
-  PENDING_REVIEW // user submitted the transfer reference
+  REQUESTED // manual: transfer details shown; gateway: checkout created, awaiting payment
+  PENDING_REVIEW // manual only: user submitted the transfer reference
   CONFIRMED
   REJECTED
 }
 
 model DepositRequest {
-  id              String        @id @default(cuid())
+  id              String                  @id @default(cuid())
   accountId       String
   currency        Currency
   amountMinor     Int
   method          DepositMethod
-  referenceCode   String        @unique // the order number the user puts in the transfer memo
+  referenceCode   String                  @unique // the order number the user puts in the transfer memo (also the gateway order id)
   userReference   String? // the bank/Instapay transaction number the user submits
-  status          DepositStatus @default(REQUESTED)
+  status          DepositStatus           @default(REQUESTED)
+  gateway         PaymentGatewayProvider? // set for CARD deposits
+  gatewayRef      String? // the gateway's own transaction id (from the webhook)
   decidedByUserId String?
   decidedAt       DateTime?
-  createdAt       DateTime      @default(now())
+  createdAt       DateTime                @default(now())
 
   @@index([status])
   @@index([accountId])

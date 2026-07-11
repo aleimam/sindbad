@@ -14,15 +14,16 @@ import {
   X,
 } from 'lucide-react';
 import { Card, cn } from '@sindbad/ui';
-import { api, apiUpload, mediaUrl } from '@/lib/api';
+import { api, ApiError, apiUpload, mediaUrl } from '@/lib/api';
 import { useMe } from '@/lib/use-me';
 import { useOnline } from '@/lib/use-online';
 import { useChatSocket } from '@/lib/use-chat-socket';
 import {
   enqueue as outboxEnqueue,
-  flush as outboxFlush,
+  flushChatOutbox,
   makeLocalId,
   pendingFor,
+  OUTBOX_FLUSHED_EVENT,
   type OutboxMessage,
 } from '@/lib/chat-outbox';
 import type { ChatMessage } from '@/lib/chat-types';
@@ -53,18 +54,6 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
     api(`/chat/threads/${threadId}/read`, { body: {} }).catch(() => undefined);
   }, [threadId]);
 
-  const flushOutbox = useCallback(async () => {
-    const sent = await outboxFlush(threadId, (m) =>
-      api(`/chat/threads/${threadId}/messages`, {
-        body: { body: m.body, replyToId: m.replyToId },
-      })
-        .then(() => true)
-        .catch(() => false),
-    );
-    refreshPending();
-    if (sent > 0) load();
-  }, [threadId, load, refreshPending]);
-
   useEffect(() => {
     if (me) {
       load();
@@ -72,10 +61,21 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
     }
   }, [me, load, refreshPending]);
 
-  // Flush queued messages whenever connectivity returns (and on first load).
+  // Flush this thread's queued messages whenever connectivity returns (and on
+  // first load). Delivery/refresh of the UI is driven by OUTBOX_FLUSHED_EVENT
+  // below, so it also covers flushes performed by the app-wide flusher.
   useEffect(() => {
-    if (me && online) void flushOutbox();
-  }, [me, online, flushOutbox]);
+    if (me && online) void flushChatOutbox(threadId).then(refreshPending);
+  }, [me, online, threadId, refreshPending]);
+
+  useEffect(() => {
+    const onFlushed = () => {
+      refreshPending();
+      load();
+    };
+    window.addEventListener(OUTBOX_FLUSHED_EVENT, onFlushed);
+    return () => window.removeEventListener(OUTBOX_FLUSHED_EVENT, onFlushed);
+  }, [load, refreshPending]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -109,7 +109,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
       return;
     }
 
-    const replyToId = replyTo?.id;
+    const reply = replyTo;
     setReplyTo(null);
 
     const queue = () => {
@@ -117,7 +117,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
         localId: makeLocalId(),
         threadId,
         body,
-        replyToId,
+        replyToId: reply?.id,
         createdAt: new Date().toISOString(),
       });
       refreshPending();
@@ -127,11 +127,19 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
       queue();
       return;
     }
-    const ok = await api(`/chat/threads/${threadId}/messages`, { body: { body, replyToId } })
-      .then(() => true)
-      .catch(() => false);
-    if (ok) load();
-    else queue();
+    try {
+      await api(`/chat/threads/${threadId}/messages`, { body: { body, replyToId: reply?.id } });
+      load();
+    } catch (e) {
+      if (e instanceof ApiError) {
+        // The server rejected the message deliberately (e.g. no longer allowed to
+        // chat) — don't queue a doomed retry; put the draft back instead.
+        setText(body);
+        setReplyTo(reply);
+      } else {
+        queue(); // network failure — deliver when connectivity returns
+      }
+    }
   }
 
   async function sendPhoto(file: File) {
@@ -143,7 +151,12 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
     form.set('file', file);
     form.set('context', 'CHAT');
     form.set('subjectId', msg.id);
-    await apiUpload('/media/upload', form).catch(() => undefined);
+    try {
+      await apiUpload('/media/upload', form);
+    } catch {
+      // Don't leave an empty orphan message behind if the upload failed.
+      await api(`/chat/messages/${msg.id}/unsend`, { body: {} }).catch(() => undefined);
+    }
     load();
   }
 
@@ -294,7 +307,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && send()}
+            onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && send()}
             placeholder={t('chat.messagePlaceholder')}
             className="flex-1 rounded-pill border border-slate-border bg-offwhite px-4 py-2 text-sm dark:border-slate-dark dark:bg-slate-dark/40"
           />

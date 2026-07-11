@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { WifiOff } from 'lucide-react';
 import { useOnline } from '@/lib/use-online';
+import { flushChatOutbox } from '@/lib/chat-outbox';
 
 /** Registers the service worker and shows an offline banner. Renders once, app-wide. */
 export function Pwa() {
@@ -20,6 +21,14 @@ export function Pwa() {
       return () => window.removeEventListener('load', register);
     }
   }, []);
+
+  // App-wide outbox flush: deliver messages queued in ANY chat thread when
+  // connectivity returns (or on first load), even if that conversation isn't
+  // open. Flushes are claim-based + serialized, so this can never double-send
+  // alongside a conversation page's own flush.
+  useEffect(() => {
+    if (online) void flushChatOutbox();
+  }, [online]);
 
   if (online) return null;
   return (

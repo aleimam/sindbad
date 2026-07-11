@@ -14,7 +14,8 @@ export const metadata: Metadata = {
   title: 'Sindbad — Powered by Travelers',
   description: 'Peer-to-peer cross-border shopping & delivery.',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Sindbad' },
-  icons: { apple: '/icons/icon.svg' },
+  // Full-bleed PNG — iOS ignores SVG touch icons and paints transparency black.
+  icons: { apple: '/icons/apple-touch-icon.png' },
 };
 
 export const viewport: Viewport = {

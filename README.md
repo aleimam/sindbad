@@ -22,6 +22,9 @@ Every decision is recorded in [`/docs`](docs/README.md):
 | [03 — UX / information architecture](docs/03-ux-information-architecture.md) | Navigation, site maps, screen inventory, flows |
 | [04 — Design system](docs/04-design-system.md) | Brand tokens → theme, components, RTL/dark mode |
 | [05 — Build plan](docs/05-build-plan.md) | Programming phases & module sequence |
+| [06 — Deployment runbook](docs/06-deployment.md) | Production topology, first deploy, CI/CD, ops |
 
 ## Status
-Planning & design **complete**. Build starting at **Phase 0 — foundation & scaffolding** (web v1).
+**LIVE in production** at [sindbad.app](https://sindbad.app) (+ [admin](https://admin.sindbad.app) · [api](https://api.sindbad.app/api/health)) since 2026-07-10 — web v1 with all planned features, deployed on a Hetzner VPS with HTTPS, nightly backups, and CI/CD auto-deploy on every push to `main` (gated by the test suite).
+
+Email/SMS/payment-gateway adapters are built but **dormant pending credentials**; Terms & Privacy pages are drafted awaiting legal review. See **[HANDOFF.md](HANDOFF.md)** for the complete current state, the waiting list, and how to continue work.

@@ -1,6 +1,6 @@
 # Sindbad — Build Plan (web v1)
 
-**Status:** ⏳ draft for review — 2026-06-25.
+**Status:** ✅ executed — all phases (0–7) built and deployed to production 2026-07-10; plan retained as the historical record. (Originally drafted 2026-06-25.)
 No deadline → **quality first**. Build in **reviewable increments**, each milestone deployed to a **staging** environment on the VPS so it can be run and seen.
 
 ## Principles
